@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "expense",
+    "slug": "expense",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "backgroundColor": "#000000",
+    "scheme": "expense",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "backgroundColor": "#000000"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE"
+      },
+      "predictiveBackGestureEnabled": false,
+      "backgroundColor": "#000000"
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      "expo-secure-store",
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
