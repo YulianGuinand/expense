@@ -16,7 +16,8 @@
         "backgroundColor": "#E6F4FE"
       },
       "predictiveBackGestureEnabled": false,
-      "backgroundColor": "#000000"
+      "backgroundColor": "#000000",
+      "package": "com.expense.expense"
     },
     "web": {
       "output": "static"
