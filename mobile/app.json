@@ -17,7 +17,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "backgroundColor": "#000000",
-      "package": "com.expense.expense"
+      "package": "com.expense.expense",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static"

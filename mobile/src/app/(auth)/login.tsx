@@ -28,12 +28,14 @@ export default function Login() {
     }
     setIsLoading(true);
     const res = await login({
-      email: emailRef.current,
+      email: emailRef.current.trim(),
       password: passwordRef.current,
     });
     setIsLoading(false);
     if (res.success) {
       router.replace("/(tabs)");
+    } else {
+      Alert.alert("Connexion", res.msg || "Identifiants incorrects.");
     }
     return;
   };

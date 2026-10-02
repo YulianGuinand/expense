@@ -1,3 +1,4 @@
+import { BlobatarAvatar } from "@/components/Avatar/BlobatarAvatar";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { Header } from "@/components/Header";
@@ -6,42 +7,34 @@ import { ModalWrapper } from "@/components/ModalWrapper";
 import { Typo } from "@/components/Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/contexts/authContext";
-import { UserDataType } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { PencilIcon } from "phosphor-react-native";
-import { useEffect, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { useState } from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 
 export default function ProfileModal() {
-  const [userData, setUserData] = useState<UserDataType>({
-    name: "",
-    image: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const { isLoading, user, updateUsername } = useAuth();
+  const { user, updateUsername } = useAuth();
+  const [userName, setUserName] = useState(user?.username || "");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!user) return;
-    setUserData({ ...userData, name: user.username });
-    setLoading(false);
-  }, []);
-
   const onSubmit = async () => {
-    if (!userData.name) Alert.alert("Attention", "Veuiller renseigner un nom.");
+    const trimmedName = userName.trim();
+    if (!trimmedName) {
+      Alert.alert("Attention", "Veuillez renseigner un nom d'utilisateur.");
+      return;
+    }
     setLoading(true);
-    const res = await updateUsername(userData.name);
+    const res = await updateUsername(trimmedName);
     setLoading(false);
-    if (res.success) router.back();
+    if (res.success) {
+      router.back();
+    } else {
+      Alert.alert(
+        "Erreur",
+        res.msg || "Impossible de mettre à jour le profil.",
+      );
+    }
   };
   return (
     <ModalWrapper>
@@ -54,26 +47,18 @@ export default function ProfileModal() {
 
         <ScrollView contentContainerStyle={styles.form}>
           <View style={styles.avatarContainer}>
-            <Image
-              style={styles.avatar}
-              source={require("@/assets/images/defaultAvatar.png")}
-              contentFit="cover"
-              transition={100}
+            <BlobatarAvatar
+              name={userName || user?.email || "expense"}
+              size={verticalScale(135)}
             />
-
-            <TouchableOpacity style={styles.editIcon}>
-              <PencilIcon size={verticalScale(20)} color={colors.neutral800} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.inputContainer}>
             <Typo color={colors.neutral200}>Nom</Typo>
             <Input
               placeholder="Nom"
-              value={userData.name}
-              onChangeText={(value) =>
-                setUserData({ ...userData, name: value })
-              }
+              value={userName}
+              onChangeText={setUserName}
             />
           </View>
         </ScrollView>

@@ -7,20 +7,22 @@ import { colors, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/contexts/authContext";
 import { verticalScale } from "@/utils/styling";
 import { useRouter } from "expo-router";
-import { AtIcon, LockIcon } from "phosphor-react-native";
+import { AtIcon, LockIcon, UserIcon } from "phosphor-react-native";
 import { useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 export default function Register() {
+  const usernameRef = useRef("");
   const emailRef = useRef("");
   const passwordRef = useRef("");
   const confirmPasswordRef = useRef("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { login } = useAuth();
+  const { register } = useAuth();
 
   const handleSubmit = async () => {
     if (
+      !usernameRef.current ||
       !emailRef.current ||
       !passwordRef.current ||
       !confirmPasswordRef.current
@@ -32,18 +34,28 @@ export default function Register() {
       return;
     }
 
+    if (passwordRef.current.length < 6) {
+      Alert.alert("Inscription", "Le mot de passe doit comporter au moins 6 caractères");
+      return;
+    }
+
     if (confirmPasswordRef.current !== passwordRef.current) {
       Alert.alert("Inscription", "Veuillez confirmer votre mot de passe");
       return;
     }
 
     setIsLoading(true);
-    const res = await login({
+    const res = await register({
+      username: usernameRef.current.trim(),
+      email: emailRef.current.trim(),
       password: passwordRef.current,
-      email: emailRef.current,
     });
     setIsLoading(false);
-    if (res.success) router.replace("/(tabs)");
+    if (res.success) {
+      router.replace("/(tabs)");
+    } else {
+      Alert.alert("Inscription", res.msg || "Une erreur est survenue lors de l'inscription.");
+    }
   };
   return (
     <ScreenWrapper>
@@ -65,6 +77,12 @@ export default function Register() {
           <Typo size={16} color={colors.textLighter}>
             Inscrivez vous maintenant pour tracer vos dépenses.
           </Typo>
+
+          <Input
+            placeholder="Entrer votre nom d'utilisateur"
+            icon={<UserIcon color={colors.neutral300} size={verticalScale(26)} />}
+            onChangeText={(value) => (usernameRef.current = value)}
+          />
 
           <Input
             placeholder="Entrer votre email"

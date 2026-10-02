@@ -36,7 +36,7 @@ export function TransactionList({
           )}
         />
       </View>
-      {!loading && data.length == 0 && (
+      {!loading && data.length === 0 && (
         <Typo
           size={15}
           color={colors.neutral400}

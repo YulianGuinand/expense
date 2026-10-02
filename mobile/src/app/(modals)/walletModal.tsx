@@ -9,27 +9,21 @@ import { WalletType } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { TrashIcon } from "phosphor-react-native";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 
 export default function WalletModal() {
-  const [wallet, setWallet] = useState<WalletType>({
-    name: "",
-    image: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
   const oldWallet = useLocalSearchParams<{
     name?: string;
     image?: string;
   }>();
 
-  useEffect(() => {
-    if (oldWallet.name) {
-      setWallet({ name: oldWallet.name, image: oldWallet.image });
-    }
-  }, []);
+  const [wallet, setWallet] = useState<WalletType>({
+    name: oldWallet.name || "",
+    image: oldWallet.image || "",
+  });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const onSubmit = async () => {
     if (!wallet.name) return;

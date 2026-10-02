@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using backend.Data;
+using backend.Models;
 using backend.Services;
 using Microsoft.OpenApi.Models;
 
@@ -13,6 +15,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .WithExposedHeaders("X-Renewed-Token");
+    });
+});
 builder.Services.AddControllers();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_long_enough_123456";
@@ -65,10 +77,47 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseHttpsRedirection();
+}
 
-app.UseHttpsRedirection();
+app.UseCors();
 
 app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        if (context.User.Identity?.IsAuthenticated == true)
+        {
+            var emailClaim = context.User.FindFirst(ClaimTypes.Email)?.Value;
+            var nameClaim = context.User.FindFirst(ClaimTypes.Name)?.Value;
+            var roleClaim = context.User.FindFirst(ClaimTypes.Role)?.Value ?? "User";
+            var idClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrEmpty(emailClaim) && !string.IsNullOrEmpty(nameClaim))
+            {
+                var authService = context.RequestServices.GetRequiredService<AuthService>();
+                int.TryParse(idClaim, out var userId);
+                var renewedUser = new User
+                {
+                    Id = userId,
+                    Username = nameClaim,
+                    Email = emailClaim,
+                    Role = roleClaim
+                };
+                var renewedToken = authService.GenerateJwtToken(renewedUser);
+                context.Response.Headers["X-Renewed-Token"] = renewedToken;
+            }
+        }
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
+
 app.UseAuthorization();
 
 app.MapControllers(); 

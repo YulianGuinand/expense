@@ -1,140 +1,175 @@
-import * as SecureStore from "expo-secure-store";
-import { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  ApiResult,
+  AuthContextType,
+  AuthResponse,
+  AuthUser,
+  LoginCredentials,
+  RegisterCredentials,
+} from "@/types";
+import { authService } from "@/services/api/authService";
+import { extractApiErrorMessage, setUnauthorizedCallback } from "@/services/api/apiClient";
+import { tokenStorage } from "@/services/storage/tokenStorage";
 
-type LoginType = {
-  email: string;
-  password: string;
-};
-
-interface ProviderProps {
-  user: { username: string; email: string } | null;
-  token: string | null;
-  isLoading: boolean;
-  login(data: LoginType): Promise<{ success: boolean }>;
-  logout(): Promise<{ success: boolean }>;
-  updateUsername(newUsername: string): Promise<{ success: boolean }>;
-}
-
-const AuthContext = createContext<ProviderProps>({
+const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   isLoading: true,
-  login: async () => {
-    return { success: false };
-  },
-  logout: async () => {
-    return { success: false };
-  },
-  updateUsername: async () => {
-    return { success: false };
-  },
+  login: async () => ({ success: false, msg: "Contexte non initialisé" }),
+  register: async () => ({ success: false, msg: "Contexte non initialisé" }),
+  logout: async () => ({ success: false }),
+  updateUsername: async () => ({ success: false, msg: "Contexte non initialisé" }),
+  refreshUserProfile: async () => ({ success: false, msg: "Contexte non initialisé" }),
 });
 
-export const randomAlphaNumeric = (length: number) => {
-  let s = "";
-  Array.from({ length }).some(() => {
-    s += Math.random().toString(36).slice(2);
-    return s.length >= length;
-  });
-  return s.slice(0, length);
-};
-
-const AUTH_STORAGE_KEY = "auth_session";
-
-const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<{ username: string; email: string } | null>(
-    null,
-  );
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Synchronisation de deconnexion en cas de reponse 401 sur un appel API
+  const handleUnauthorized = useCallback(() => {
+    setUser(null);
+    setToken(null);
+  }, []);
+
   useEffect(() => {
-    const loadSession = async () => {
+    setUnauthorizedCallback(handleUnauthorized);
+    return () => {
+      setUnauthorizedCallback(null);
+    };
+  }, [handleUnauthorized]);
+
+  // Chargement initial de la session securisee
+  useEffect(() => {
+    const initializeAuth = async () => {
       try {
-        const storedSession = await SecureStore.getItemAsync(AUTH_STORAGE_KEY);
-        if (storedSession) {
-          const { email, token, username } = JSON.parse(storedSession);
-          setUser({ email, username: username || "Yulian" });
-          setToken(token);
+        const storedToken = await tokenStorage.getToken();
+        const storedUser = await tokenStorage.getUser();
+
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(storedUser);
+
+          // Verification en arriere-plan de la validite du jeton aupres du backend
+          try {
+            const freshUser = await authService.getMe();
+            setUser(freshUser);
+            await tokenStorage.setUser(freshUser);
+          } catch {
+            // Si le jeton est expire (401), l'intercepteur declenche handleUnauthorized
+          }
         }
       } catch (error) {
-        console.error("Erreur lors du chargement de la session :", error);
+        console.error("Erreur d'initialisation de la session :", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadSession();
+    initializeAuth();
   }, []);
 
-  const login = async (data: LoginType) => {
+  const login = useCallback(async (credentials: LoginCredentials): Promise<ApiResult<AuthResponse>> => {
     try {
-      const t = randomAlphaNumeric(50);
-      const username = "Yulian";
+      const response = await authService.login(credentials);
+      setToken(response.token);
+      setUser(response.user);
 
-      setUser({ email: data.email, username });
-      setToken(t);
+      await Promise.all([
+        tokenStorage.setToken(response.token),
+        tokenStorage.setUser(response.user),
+      ]);
 
-      const sessionData = JSON.stringify({
-        email: data.email,
-        token: t,
-        username,
-      });
-      await SecureStore.setItemAsync(AUTH_STORAGE_KEY, sessionData);
-
-      return { success: true };
+      return { success: true, data: response };
     } catch (error) {
-      console.error("Erreur lors de la connexion :", error);
-      return { success: false };
+      const msg = extractApiErrorMessage(error, "Échec de connexion. Vérifiez vos identifiants.");
+      return { success: false, msg };
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const register = useCallback(async (credentials: RegisterCredentials): Promise<ApiResult<AuthResponse>> => {
+    try {
+      const response = await authService.register(credentials);
+      setToken(response.token);
+      setUser(response.user);
+
+      await Promise.all([
+        tokenStorage.setToken(response.token),
+        tokenStorage.setUser(response.user),
+      ]);
+
+      return { success: true, data: response };
+    } catch (error) {
+      const msg = extractApiErrorMessage(error, "Échec de l'inscription.");
+      return { success: false, msg };
+    }
+  }, []);
+
+  const logout = useCallback(async (): Promise<ApiResult> => {
     try {
       setUser(null);
       setToken(null);
-      await SecureStore.deleteItemAsync(AUTH_STORAGE_KEY);
+      await tokenStorage.clearSession();
       return { success: true };
     } catch (error) {
       console.error("Erreur lors de la déconnexion :", error);
-      return { success: false };
+      return { success: false, msg: "Erreur lors de la déconnexion." };
     }
-  };
+  }, []);
 
-  const updateUsername = async (newUsername: string) => {
+  const updateUsername = useCallback(async (newUsername: string): Promise<ApiResult<AuthUser>> => {
     try {
-      if (!user || !token) {
-        return { success: false };
-      }
-
-      const updatedUser = { ...user, username: newUsername };
+      const updatedUser = await authService.updateUsername({ username: newUsername });
       setUser(updatedUser);
-
-      const sessionData = JSON.stringify({
-        email: user.email,
-        token,
-        username: newUsername,
-      });
-      await SecureStore.setItemAsync(AUTH_STORAGE_KEY, sessionData);
-
-      return { success: true };
+      await tokenStorage.setUser(updatedUser);
+      return { success: true, data: updatedUser };
     } catch (error) {
-      console.error("Erreur lors de la modification du nom :", error);
-      return { success: false };
+      const msg = extractApiErrorMessage(error, "Impossible de mettre à jour le profil.");
+      return { success: false, msg };
     }
-  };
+  }, []);
+
+  const refreshUserProfile = useCallback(async (): Promise<ApiResult<AuthUser>> => {
+    try {
+      const freshUser = await authService.getMe();
+      setUser(freshUser);
+      await tokenStorage.setUser(freshUser);
+      return { success: true, data: freshUser };
+    } catch (error) {
+      const msg = extractApiErrorMessage(error, "Impossible d'actualiser le profil.");
+      return { success: false, msg };
+    }
+  }, []);
+
+  const contextValue = useMemo<AuthContextType>(
+    () => ({
+      user,
+      token,
+      isLoading,
+      login,
+      register,
+      logout,
+      updateUsername,
+      refreshUserProfile,
+    }),
+    [user, token, isLoading, login, register, logout, updateUsername, refreshUserProfile]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ user, token, isLoading, login, logout, updateUsername }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export default AuthProvider;
-
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   return useContext(AuthContext);
 };

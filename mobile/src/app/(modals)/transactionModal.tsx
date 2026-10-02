@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 export default function TransactionModal() {
   return (
@@ -7,5 +7,3 @@ export default function TransactionModal() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({});

@@ -3,11 +3,14 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@blobatar/react-native": "^2.7.0",
     "@expo/ui": "~57.0.21",
     "@react-navigation/bottom-tabs": "^7.20.0",
     "@react-navigation/elements": "^2.9.44",
     "@react-navigation/native": "^7.5.0",
     "@shopify/flash-list": "2.0.2",
+    "axios": "^1.20.0",
+    "blobatar": "^2.7.0",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
     "expo-dev-client": "~57.0.19",
@@ -31,11 +34,14 @@
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
   },
   "scripts": {

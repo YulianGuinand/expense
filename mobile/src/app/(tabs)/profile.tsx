@@ -1,3 +1,4 @@
+import { BlobatarAvatar } from "@/components/Avatar/BlobatarAvatar";
 import { Header } from "@/components/Header";
 import { ScreenWrapper } from "@/components/ScreenWrapper";
 import { Typo } from "@/components/Typo";
@@ -5,7 +6,6 @@ import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/contexts/authContext";
 import { accountOptionType } from "@/types";
 import { verticalScale } from "@/utils/styling";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   CaretRightIcon,
@@ -16,33 +16,33 @@ import {
 } from "phosphor-react-native";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+const accountOptions: accountOptionType[] = [
+  {
+    title: "Modifier le profil",
+    icon: <UserIcon size={26} color={colors.white} />,
+    bgColor: "#6366f1",
+    routeName: "/(modals)/profileModal",
+  },
+  {
+    title: "Paramêtres",
+    icon: <GearIcon size={26} color={colors.white} />,
+    bgColor: "#059669",
+  },
+  {
+    title: "Politique de confidentialité",
+    icon: <LockIcon size={26} color={colors.white} />,
+    bgColor: colors.neutral600,
+  },
+  {
+    title: "Se deconnecter",
+    icon: <PowerIcon size={26} color={colors.white} />,
+    bgColor: "#e11d48",
+  },
+];
+
 export default function Profile() {
   const { user, logout } = useAuth();
   const router = useRouter();
-
-  const accountOptions: accountOptionType[] = [
-    {
-      title: "Modifier le profil",
-      icon: <UserIcon size={26} color={colors.white} />,
-      bgColor: "#6366f1",
-      routeName: "/(modals)/profileModal",
-    },
-    {
-      title: "Paramêtres",
-      icon: <GearIcon size={26} color={colors.white} />,
-      bgColor: "#059669",
-    },
-    {
-      title: "Politique de confidentialité",
-      icon: <LockIcon size={26} color={colors.white} />,
-      bgColor: colors.neutral600,
-    },
-    {
-      title: "Se deconnecter",
-      icon: <PowerIcon size={26} color={colors.white} />,
-      bgColor: "#e11d48",
-    },
-  ];
 
   const showLogoutAlert = () => {
     Alert.alert("Confirmer", "Êtes vous sur de vous deconnecter ?", [
@@ -84,11 +84,9 @@ export default function Profile() {
         <View style={styles.userInfo}>
           {/* avatar */}
           <View>
-            <Image
-              source={require("@/assets/images/defaultAvatar.png")}
-              contentFit="cover"
-              transition={100}
-              style={styles.avatar}
+            <BlobatarAvatar
+              name={user?.username || user?.email || "expense"}
+              size={verticalScale(135)}
             />
           </View>
 
@@ -111,7 +109,7 @@ export default function Profile() {
                 entering={FadeInDown.delay(index * 50)
                   .springify()
                   .damping(60)}
-                key={index}
+                key={item.title}
                 style={styles.listIem}
               >
                 <TouchableOpacity

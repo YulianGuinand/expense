@@ -16,7 +16,7 @@ export default function Index() {
     } else {
       router.replace("/(tabs)");
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   return (
     <View style={styles.container}>

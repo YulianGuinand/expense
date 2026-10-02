@@ -23,4 +23,14 @@ public class AuthControllerIntegrationTests : IClassFixture<WebApplicationFactor
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task Register_WithMissingFields_ShouldReturnBadRequest()
+    {
+        var registerDto = new UserRegisterDto("", "", "");
+
+        var response = await _client.PostAsJsonAsync("/api/Auth/register", registerDto);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

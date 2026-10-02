@@ -27,4 +27,21 @@ public class UserControllerIntegrationTests : IClassFixture<WebApplicationFactor
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task GetCurrentUser_WithoutToken_ShouldReturnUnauthorized()
+    {
+        var response = await _client.GetAsync("/api/User/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUser_WithoutToken_ShouldReturnUnauthorized()
+    {
+        var content = new StringContent("{\"username\":\"NewName\"}", System.Text.Encoding.UTF8, "application/json");
+        var response = await _client.PutAsync("/api/User/me", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }

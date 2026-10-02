@@ -1,12 +1,6 @@
-import { Href } from "expo-router";
-import { Firestore, Timestamp } from "firebase/firestore";
 import { Icon } from "phosphor-react-native";
 import React, { ReactNode } from "react";
 import {
-  ActivityIndicator,
-  ActivityIndicatorProps,
-  ImageStyle,
-  PressableProps,
   TextInput,
   TextInputProps,
   TextProps,
@@ -73,7 +67,7 @@ export type TransactionType = {
   type: string;
   amount: number;
   category?: string;
-  date: Date | Timestamp | string;
+  date: Date | string;
   description?: string;
   image?: any;
   uid?: string;
@@ -128,12 +122,40 @@ export type ImageUploadProps = {
   placeholder?: string;
 };
 
-export type UserType = {
-  uid?: string;
-  email?: string | null;
-  name: string | null;
-  image?: any;
-} | null;
+export type AuthUser = {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+};
+
+export type AuthResponse = {
+  token: string;
+  user: AuthUser;
+};
+
+export type LoginCredentials = {
+  email: string;
+  password: string;
+};
+
+export type RegisterCredentials = {
+  username: string;
+  email: string;
+  password: string;
+};
+
+export type UpdateUserCredentials = {
+  username: string;
+};
+
+export type ApiResult<T = void> = {
+  success: boolean;
+  data?: T;
+  msg?: string;
+};
+
+export type UserType = AuthUser | null;
 
 export type UserDataType = {
   name: string;
@@ -141,18 +163,16 @@ export type UserDataType = {
 };
 
 export type AuthContextType = {
-  user: UserType;
-  setUser: Function;
-  login: (
-    email: string,
-    password: string
-  ) => Promise<{ success: boolean; msg?: string }>;
+  user: AuthUser | null;
+  token: string | null;
+  isLoading: boolean;
+  login: (credentials: LoginCredentials) => Promise<ApiResult<AuthResponse>>;
   register: (
-    email: string,
-    password: string,
-    name: string
-  ) => Promise<{ success: boolean; msg?: string }>;
-  updateUserData: (userId: string) => Promise<void>;
+    credentials: RegisterCredentials,
+  ) => Promise<ApiResult<AuthResponse>>;
+  logout: () => Promise<ApiResult>;
+  updateUsername: (newUsername: string) => Promise<ApiResult<AuthUser>>;
+  refreshUserProfile: () => Promise<ApiResult<AuthUser>>;
 };
 
 export type ResponseType = {

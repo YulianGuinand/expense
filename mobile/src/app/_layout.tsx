@@ -1,6 +1,15 @@
 import { colors } from "@/constants/theme";
-import AuthProvider from "@/contexts/authContext";
+import { AuthProvider } from "@/contexts/authContext";
 import { Stack } from "expo-router";
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
+
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
 
 function StackLayout() {
   return (

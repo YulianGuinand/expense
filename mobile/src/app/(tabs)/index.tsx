@@ -1,3 +1,4 @@
+import { BlobatarAvatar } from "@/components/Avatar/BlobatarAvatar";
 import { Button } from "@/components/Button";
 import { HomeCard } from "@/components/HomeCard";
 import { ScreenWrapper } from "@/components/ScreenWrapper";
@@ -12,7 +13,7 @@ import { MagnifyingGlassIcon, PlusIcon } from "phosphor-react-native";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   return (
@@ -25,16 +26,24 @@ export default function Home() {
               Salut,{" "}
             </Typo>
             <Typo size={20} fontWeight={"500"}>
-              {user?.username}
+              {user?.username || "Bienvenue"}
             </Typo>
           </View>
-          <TouchableOpacity style={styles.searchItem}>
-            <MagnifyingGlassIcon
-              size={verticalScale(22)}
-              color={colors.neutral200}
-              weight="bold"
-            />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <TouchableOpacity style={styles.searchItem}>
+              <MagnifyingGlassIcon
+                size={verticalScale(22)}
+                color={colors.neutral200}
+                weight="bold"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/profile")}>
+              <BlobatarAvatar
+                name={user?.username || user?.email || "expense"}
+                size={verticalScale(42)}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
