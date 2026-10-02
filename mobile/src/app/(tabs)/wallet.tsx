@@ -10,6 +10,24 @@ import { PlusCircleIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 
+export const walletsItem = [
+  {
+    name: "Personnel",
+    image: "",
+    amount: 2344,
+  },
+  {
+    name: "Plan d'épargne",
+    image: "",
+    amount: 120,
+  },
+  {
+    name: "Livret A",
+    image: "",
+    amount: 50,
+  },
+];
+
 export default function Wallet() {
   const router = useRouter();
 
@@ -24,23 +42,7 @@ export default function Wallet() {
 
   useEffect(() => {
     setTimeout(() => {
-      setWallets([
-        {
-          name: "Personnel",
-          image: "",
-          amount: 2344,
-        },
-        {
-          name: "Plan d'épargne",
-          image: "",
-          amount: 120,
-        },
-        {
-          name: "Livret A",
-          image: "",
-          amount: 50,
-        },
-      ]);
+      setWallets(walletsItem);
       setLoading(false);
     }, 1000);
   }, []);
