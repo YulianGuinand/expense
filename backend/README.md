@@ -43,7 +43,7 @@ dotnet restore
 
 ### 3. Configurer les variables d'environnement / Configuration
 
-Créez ou dupliquez un fichier de configuration (`appsettings.Development.json` à la racine du dossier `backend/` et renommer le en `appsettings.json`) en vous basant sur la structure suivante. Pensez à y adapter vos identifiants MySQL et votre clé secrète JWT :
+Créez ou dupliquez un fichier de configuration (`appsettings.json.example` à la racine du dossier `backend/` et renommer le en `appsettings.json`) en vous basant sur la structure suivante. Pensez à y adapter vos identifiants MySQL et votre clé secrète JWT :
 
 ```json
 {
