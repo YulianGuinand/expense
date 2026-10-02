@@ -9,7 +9,7 @@ import { verticalScale } from "@/utils/styling";
 import { useRouter } from "expo-router";
 import { AtIcon, LockIcon, UserIcon } from "phosphor-react-native";
 import { useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 export default function Register() {
   const usernameRef = useRef("");
@@ -57,107 +57,102 @@ export default function Register() {
       Alert.alert("Inscription", res.msg || "Une erreur est survenue lors de l'inscription.");
     }
   };
+
   return (
     <ScreenWrapper>
-      <View style={styles.container}>
-        {/* Back button */}
-        <BackButton iconSize={28} />
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.container} 
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Back button */}
+          <BackButton iconSize={28} />
 
-        <View style={{ gap: 5, marginTop: spacingY._20 }}>
-          <Typo size={30} fontWeight={"800"}>
-            Hey,
-          </Typo>
-          <Typo size={30} fontWeight={"800"}>
-            bienvenue sur Expense !
-          </Typo>
-        </View>
-
-        {/* form */}
-        <View style={styles.form}>
-          <Typo size={16} color={colors.textLighter}>
-            Inscrivez vous maintenant pour tracer vos dépenses.
-          </Typo>
-
-          <Input
-            placeholder="Entrer votre nom d'utilisateur"
-            icon={<UserIcon color={colors.neutral300} size={verticalScale(26)} />}
-            onChangeText={(value) => (usernameRef.current = value)}
-          />
-
-          <Input
-            placeholder="Entrer votre email"
-            icon={<AtIcon color={colors.neutral300} size={verticalScale(26)} />}
-            onChangeText={(value) => (emailRef.current = value)}
-          />
-
-          <Input
-            placeholder="Entrer votre mot de passe"
-            secureTextEntry
-            icon={
-              <LockIcon color={colors.neutral300} size={verticalScale(26)} />
-            }
-            onChangeText={(value) => (passwordRef.current = value)}
-          />
-
-          <Input
-            placeholder="Confirmer votre mot de passe"
-            secureTextEntry
-            icon={
-              <LockIcon color={colors.neutral300} size={verticalScale(26)} />
-            }
-            onChangeText={(value) => (confirmPasswordRef.current = value)}
-          />
-
-          <Button onPress={handleSubmit} loading={isLoading}>
-            <Typo fontWeight={"700"} color={colors.neutral900} size={21}>
-              S&apos;inscrire
+          <View style={{ gap: 5 }}>
+            <Typo size={30} fontWeight={"800"}>
+              Hey,
             </Typo>
-          </Button>
-        </View>
-
-        <View style={styles.footer}>
-          <Typo size={15} color={colors.textLighter}>
-            Vous possedez déjà un compte ?
-          </Typo>
-          <Pressable onPress={() => router.push("/(auth)/login")}>
-            <Typo size={15} color={colors.primary} fontWeight={"700"}>
-              Se connecter
+            <Typo size={30} fontWeight={"800"}>
+              bienvenue sur Expense !
             </Typo>
-          </Pressable>
-        </View>
-      </View>
+          </View>
+
+          {/* form */}
+          <View style={styles.form}>
+            <Typo size={16} color={colors.textLighter}>
+              Inscrivez vous maintenant pour tracer vos dépenses.
+            </Typo>
+
+            <Input
+              placeholder="Entrer votre nom d'utilisateur"
+              icon={<UserIcon color={colors.neutral300} size={verticalScale(26)} />}
+              onChangeText={(value) => (usernameRef.current = value)}
+            />
+
+            <Input
+              placeholder="Entrer votre email"
+              icon={<AtIcon color={colors.neutral300} size={verticalScale(26)} />}
+              onChangeText={(value) => (emailRef.current = value)}
+            />
+
+            <Input
+              placeholder="Entrer votre mot de passe"
+              secureTextEntry
+              icon={
+                <LockIcon color={colors.neutral300} size={verticalScale(26)} />
+              }
+              onChangeText={(value) => (passwordRef.current = value)}
+            />
+
+            <Input
+              placeholder="Confirmer votre mot de passe"
+              secureTextEntry
+              icon={
+                <LockIcon color={colors.neutral300} size={verticalScale(26)} />
+              }
+              onChangeText={(value) => (confirmPasswordRef.current = value)}
+            />
+
+            <Button onPress={handleSubmit} loading={isLoading}>
+              <Typo fontWeight={"700"} color={colors.neutral900} size={21}>
+                S&apos;inscrire
+              </Typo>
+            </Button>
+          </View>
+
+          <View style={styles.footer}>
+            <Typo size={15} color={colors.textLighter}>
+              Vous possedez déjà un compte ?
+            </Typo>
+            <Pressable onPress={() => router.push("/(auth)/login")}>
+              <Typo size={15} color={colors.primary} fontWeight={"700"}>
+                Se connecter
+              </Typo>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     gap: spacingY._30,
     paddingHorizontal: spacingX._20,
-  },
-  welcomeText: {
-    fontSize: verticalScale(20),
-    fontWeight: "bold",
-    color: colors.text,
+    paddingBottom: spacingY._40, 
   },
   form: {
     gap: spacingY._20,
-  },
-  forgotPassword: {
-    textAlign: "right",
-    fontWeight: "500",
-    color: colors.text,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 5,
-  },
-  footerText: {
-    textAlign: "center",
-    color: colors.text,
-    fontSize: verticalScale(15),
+    marginBottom: spacingY._20,
   },
 });
