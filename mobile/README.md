@@ -1,56 +1,141 @@
-# Welcome to your Expo app 👋
+# Expense - Application Mobile (Expo / React Native)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Ce document decrit l'architecture technique, les regles de developpement et la procedure de configuration et d'execution de l'application mobile **Expense**.
 
-## Get started
+---
 
-1. Install dependencies
+## 1. Specifications et Technologies
 
-   ```bash
-   npm install
-   ```
+- **Framework** : Expo SDK 57 (~57.0.26)
+- **Moteur Mobile** : React Native 0.86.3 (React 19.2.3)
+- **Langage** : TypeScript 6.0.3 (typage statique strict)
+- **Routage** : Expo Router v4 (~57.0.24, navigation basee sur l'arborescence de fichiers)
+- **Client HTTP** : Axios (^1.20.0) avec intercepteurs de securite et session glissante
+- **Stockage Securise** : Expo Secure Store (~57.0.4, Keychain iOS / Keystore Android)
+- **Avatar System** : Blobatar (@blobatar/react-native 2.7.0, avatars geometriques deterministes)
+- **Performances Listes** : @shopify/flash-list (2.0.2)
+- **Animations** : React Native Reanimated (4.5.1) et React Native Worklets (0.10.1)
+- **Icones** : phosphor-react-native (3.0.6)
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 2. Configuration des Variables d'Environnement (.env)
 
-In the output, you'll find options to open the app in a
+L'application mobile utilise le systeme de variables d'environnement natif d'Expo. Toute variable exposee au code JavaScript client doit debuter par le prefixe `EXPO_PUBLIC_`.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 2.1 Fichier .env.example
+Un modele de configuration est disponible a la racine du module mobile : `mobile/.env.example` :
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```ini
+# URL de base de l'API Backend .NET
+# ATTENTION : Ne pas utiliser localhost sur un smartphone reel ou un emulateur.
+# Utilisez l'adresse IPv4 de votre machine sur le reseau local (ex: http://192.168.1.XX:5256/api)
+EXPO_PUBLIC_API_URL=http://[ADRESSE_IP]:5256/api
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2.2 Initialisation du fichier .env
+Pour configurer votre environnement de developpement local :
 
-### Other setup steps
+1. Dupliquez le fichier exemple a la racine du dossier `mobile/` :
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+2. Adaptez la variable `EXPO_PUBLIC_API_URL` avec l'adresse IP de votre machine hote executant le backend ASP.NET Core.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+> Remarque technique : La variable `EXPO_PUBLIC_API_URL` fait l'objet d'une validation stricte au chargement du module client API (`apiClient.ts`). Si elle n'est pas fournie ou vide, une exception explicite est levee au demarrage pour eviter tout echec silencieux.
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## 3. Architecture et Structure des Fichiers
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```text
+mobile/
+├── .env                            # Variables d'environnement locales actives
+├── .env.example                    # Gabarit de configuration documente
+├── app.json                        # Configuration et plugins Expo
+├── eslint.config.js                # Configuration ESLint 9
+├── package.json                    # Dependances et scripts
+├── tsconfig.json                   # Configuration TypeScript
+└── src/
+    ├── app/                        # Routes Expo Router (default export obligatoire ici)
+    │   ├── (auth)/                 # login.tsx, register.tsx, welcome.tsx
+    │   ├── (modals)/               # profileModal.tsx, transactionModal.tsx, walletModal.tsx
+    │   ├── (tabs)/                 # _layout.tsx, index.tsx, profile.tsx, statistics.tsx, wallet.tsx
+    │   ├── _layout.tsx             # Configuration globale de navigation et Reanimated logger
+    │   └── index.tsx               # Point d'entree d'aiguillage de session
+    ├── components/                 # Composants d'interface (exports nommes exclusifs)
+    │   ├── Avatar/
+    │   │   └── BlobatarAvatar.tsx  # Avatar deterministe memoise via @blobatar/react-native
+    │   ├── BackButton.tsx
+    │   ├── Button.tsx
+    │   ├── Header.tsx
+    │   ├── HomeCard.tsx
+    │   ├── Input.tsx
+    │   ├── ScreenWrapper.tsx
+    │   ├── TransactionList.tsx
+    │   └── Typo.tsx
+    ├── constants/                  # Constantes graphiques, couleurs et donnees de test
+    ├── contexts/
+    │   └── authContext.tsx         # Gestion d'etat d'authentification et session utilisateur
+    ├── services/
+    │   ├── api/
+    │   │   ├── apiClient.ts        # Instance Axios, intercepteurs JWT et session glissante
+    │   │   └── authService.ts      # Appels REST typés (login, register, getMe, updateUsername)
+    │   └── storage/
+    │       └── tokenStorage.ts     # Abstraction d'acces a Expo SecureStore
+    ├── types.ts                    # Definitions des types transverses
+    └── utils/                      # Fonctions d'echelle dynamique pour l'affichage
+```
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 4. Regles de Developpement
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. **Exports Nommes** :
+   Tous les composants partages (`src/components/`), services (`src/services/`), contextes (`src/contexts/`) et utilitaires utilisent des exports nommes (`export const ...`). Seuls les fichiers de routes sous `src/app/` utilisent un export par defaut conformement aux exigences techniques d'Expo Router.
+2. **Gestion de la Session et Securite** :
+   - Le token JWT est stocke dans le hardware securise via `expo-secure-store`.
+   - L'instance Axios injecte automatiquement l'entete `Authorization: Bearer <token>`.
+   - En cas d'en-tête de renouvellement `X-Renewed-Token` renvoye par le backend, le token local est mis a jour de maniere transparente (session glissante active).
+   - En cas de statut 401 Unauthorized, la session locale est automatiquement purgee et l'utilisateur est redirige vers l'ecran d'accueil.
+3. **Avatars Deterministes Blobatar** :
+   L'avatar de l'utilisateur est genere dynamiquement a partir de son adresse email ou de son nom d'utilisateur a l'aide du composant `BlobatarAvatar`, garantissant une identite visuelle unique sans necessiter de stockage d'image lourd en base de donnees.
+
+---
+
+## 5. Guide de Demarrage et Commandes
+
+### 5.1 Installation des Dependances
+```powershell
+npm install
+```
+
+### 5.2 Verification de la Compatibilite Expo
+```powershell
+npx expo-doctor
+```
+
+### 5.3 Verification TypeScript et Linting
+```powershell
+# Verification du typage statique
+npx tsc --noEmit
+
+# Analyse de conformite ESLint
+npx eslint .
+```
+
+### 5.4 Lancement du Serveur de Developpement Metro
+```powershell
+npx expo start
+```
+
+Raccourcis disponibles dans le terminal :
+- `s` : Basculer entre Expo Go et Development Build.
+- `a` : Lancer sur emulateur Android.
+- `w` : Ouvrir dans le navigateur web.
+- Scanner le QR Code affiche avec l'application Expo Go sur appareil physique.
+
+### 5.5 Test de Compilation et Bundling
+```powershell
+npx expo export --no-bytecode
+```

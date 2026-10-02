@@ -6,7 +6,17 @@ import axios, {
 } from "axios";
 import { tokenStorage } from "../storage/tokenStorage";
 
-export const API_BASE_URL = "http://192.168.25.105:5256/api";
+const resolveApiBaseUrl = (): string => {
+  const url = process.env.EXPO_PUBLIC_API_URL;
+  if (!url || url.trim() === "") {
+    throw new Error(
+      "Configuration manquante : la variable d'environnement EXPO_PUBLIC_API_URL n'est pas définie. Veuillez créer un fichier .env à la racine du dossier mobile (consultez .env.example).",
+    );
+  }
+  return url.trim();
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 type UnauthorizedHandler = () => void;
 let unauthorizedCallback: UnauthorizedHandler | null = null;

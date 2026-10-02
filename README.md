@@ -397,19 +397,27 @@ Installez l'ensemble des paquets verifies conformes au SDK Expo :
 npm install
 ```
 
-#### B. Configuration Reseau de l'API Backend pour le Mobile
-**Regle Fondamentale pour le Mobile** : Lorsque vous testez l'application sur un smartphone reel via **Expo Go**, l'adresse `localhost` ou `127.0.0.1` pointe vers l'appareil mobile lui-meme et ne peut pas joindre votre machine Windows.
+#### B. Configuration des Variables d'Environnement (.env)
+L'application mobile utilise le gestionnaire natif de variables d'environnement d'Expo avec la variable `EXPO_PUBLIC_API_URL`.
 
-1. Identifiez l'adresse IPv4 locale de votre machine de developpement en executant :
+**Regle Reseau Fondamentale pour le Mobile** : Lorsque vous testez l'application sur un smartphone reel via **Expo Go** ou un emulateur, l'adresse `localhost` ou `127.0.0.1` pointe vers l'appareil mobile lui-meme et ne peut pas joindre votre machine Windows.
+
+1. Identifiez l'adresse IPv4 locale de votre machine de developpement :
    ```powershell
    ipconfig
    ```
-   Relevez votre adresse IPv4 sur la carte reseau Wi-Fi ou Ethernet active (exemple : `192.168.1.45`).
-2. Lors des appels vers le backend dans le code mobile, utilisez cette URL d'hote :
-   ```text
-   http://192.168.1.45:5256/api
+   Relevez votre adresse IPv4 sur la carte reseau Wi-Fi active (exemple : `192.168.25.105`).
+2. Dupliquez le fichier d'exemple `.env.example` a la racine du dossier `mobile/` :
+   ```powershell
+   Copy-Item .env.example .env
    ```
-   *(Veillez a ce que votre pare-feu Windows autorise les connexions entrantes sur le port 5256).*
+3. Renseignez l'URL de votre API dans `.env` :
+   ```ini
+   EXPO_PUBLIC_API_URL=http://[ADRESSE_IP]:5256/api
+   ```
+   *(Veillez a ce que votre profil reseau Wi-Fi sous Windows soit defini sur 'Prive' et que votre pare-feu autorise les connexions entrantes sur le port 5256).*
+
+> Remarque : La variable `EXPO_PUBLIC_API_URL` est strictement requise. Si elle est omise, le client mobile refuse de s'initialiser et levee une exception explicite indiquant le fichier manquant.
 
 #### C. Lancement du Serveur Metro Bundler
 Demarrez le compilateur Expo :
