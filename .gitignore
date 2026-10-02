@@ -1,0 +1,21 @@
+# .NET / C#
+[Oo]bj/
+[Bb]in/
+[Ll]ogs/
+[Tt]estResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# OS / Divers
+.DS_Store
+Thumbs.db
+appsettings.Development.json
