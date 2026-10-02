@@ -8,13 +8,19 @@ API REST backend développée en C# avec ASP.NET Core, Entity Framework Core (OR
 
 Avant de cloner et lancer le projet, assurez-vous d'avoir installé sur votre machine :
 
-* Le [SDK .NET](https://dotnet.microsoft.com/) (version 8.0 ou 11.0 selon votre configuration).
-* Un serveur **MySQL** (via XAMPP, Docker ou MySQL Server natif).
-* (Optionnel) L'outil global EF Core CLI pour les migrations :
+- Le [SDK .NET](https://dotnet.microsoft.com/) (version 9.0).
+- Avoir une source pour telecharger les nugets
+
+```bash
+dotnet nuget add source "https://api.nuget.org/v3/index.json" -n "nuget.org"
+```
+
+- Un serveur **MySQL** (via XAMPP, Docker ou MySQL Server natif).
+- (Optionnel) L'outil global EF Core CLI pour les migrations :
+
 ```bash
 dotnet tool install --global dotnet-ef
 ```
-
 
 ---
 
@@ -73,7 +79,7 @@ Générez les tables dans votre base de données MySQL à l'aide des migrations 
 dotnet dotnet-ef database update
 ```
 
-*(Si vous utilisez l'outil global standard installé sur votre poste, la commande peut être simplement `dotnet ef database update`)*.
+_(Si vous utilisez l'outil global standard installé sur votre poste, la commande peut être simplement `dotnet ef database update`)_.
 
 ### 6. Lancer l'application
 
@@ -89,14 +95,12 @@ dotnet watch run
 
 Une fois l'application lancée, l'URL du serveur s'affichera dans le terminal (par exemple `http://localhost:5256`).
 
-* **Interface Swagger (UI) :** `http://localhost:<votre-port>/swagger`
-* **Endpoints principaux :**
-* `POST /api/Auth/register` : Inscription d'un nouvel utilisateur.
-* `POST /api/Auth/login` : Connexion (génération du token JWT).
-* `GET /api/User` : Récupération de la liste des utilisateurs (Protégé par JWT).
-* `GET /api/User/admin-only` : Espace restreint aux administrateurs (Rôle `Admin`).
-
-
+- **Interface Swagger (UI) :** `http://localhost:<votre-port>/swagger`
+- **Endpoints principaux :**
+- `POST /api/Auth/register` : Inscription d'un nouvel utilisateur.
+- `POST /api/Auth/login` : Connexion (génération du token JWT).
+- `GET /api/User` : Récupération de la liste des utilisateurs (Protégé par JWT).
+- `GET /api/User/admin-only` : Espace restreint aux administrateurs (Rôle `Admin`).
 
 ---
 
