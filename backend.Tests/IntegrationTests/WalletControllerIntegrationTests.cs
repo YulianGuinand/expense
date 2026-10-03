@@ -219,6 +219,74 @@ public class WalletControllerIntegrationTests : IClassFixture<ExpenseApiFactory>
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Create_WithGoal_ShouldReturnCreated_WithGoal()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+
+        var response = await client.PostAsJsonAsync("/api/Wallet", new WalletCreateDto("Épargne", 1000f));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var rawBody = await response.Content.ReadAsStringAsync();
+        rawBody.Should().Contain("\"goal\":1000");
+
+        var wallet = await response.Content.ReadFromJsonAsync<WalletResponseDto>();
+        wallet!.Goal.Should().Be(1000f);
+    }
+
+    [Fact]
+    public async Task Create_WithNonPositiveGoal_ShouldReturnBadRequest()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+
+        var response = await client.PostAsJsonAsync("/api/Wallet", new WalletCreateDto("Épargne", 0f));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<ErrorDto>();
+        body!.Message.Should().Be("L'objectif doit être supérieur à 0.");
+    }
+
+    [Fact]
+    public async Task Update_ShouldSetAndClearGoal()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var created = await CreateWalletAsync(client, "Épargne");
+
+        var setResponse = await client.PutAsJsonAsync(
+            $"/api/Wallet/{created.Id}", new WalletUpdateDto("Épargne", 1000f));
+        setResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await setResponse.Content.ReadFromJsonAsync<WalletResponseDto>())!.Goal.Should().Be(1000f);
+
+        var clearResponse = await client.PutAsJsonAsync(
+            $"/api/Wallet/{created.Id}", new WalletUpdateDto("Épargne"));
+        clearResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await clearResponse.Content.ReadFromJsonAsync<WalletResponseDto>())!.Goal.Should().BeNull();
+
+        var reloaded = await client.GetFromJsonAsync<WalletResponseDto>($"/api/Wallet/{created.Id}");
+        reloaded!.Goal.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Update_WithNonPositiveGoal_ShouldReturnBadRequest_AndKeepGoal()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var created = await CreateWalletAsync(client, "Épargne");
+        await client.PutAsJsonAsync($"/api/Wallet/{created.Id}", new WalletUpdateDto("Épargne", 500f));
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/Wallet/{created.Id}", new WalletUpdateDto("Épargne", -1f));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<ErrorDto>();
+        body!.Message.Should().Be("L'objectif doit être supérieur à 0.");
+
+        var reloaded = await client.GetFromJsonAsync<WalletResponseDto>($"/api/Wallet/{created.Id}");
+        reloaded!.Goal.Should().Be(500f);
+    }
+
     private static async Task<WalletResponseDto> CreateWalletAsync(HttpClient client, string name)
     {
         var response = await client.PostAsJsonAsync("/api/Wallet", new WalletCreateDto(name));

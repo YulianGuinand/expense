@@ -310,6 +310,105 @@ public class TransactionControllerIntegrationTests : IClassFixture<ExpenseApiFac
         remaining.Should().ContainSingle().Which.Amount.Should().Be(30f);
     }
 
+    [Fact]
+    public async Task GetMonthly_WithoutToken_ShouldReturnUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/Transaction/monthly");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MonthlyStats_ShouldReturnSixZeroFilledBuckets_AndAggregateCurrentMonth()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var wallet = await GetDefaultWalletAsync(client);
+
+        await client.PostAsJsonAsync(
+            "/api/Transaction",
+            new TransactionCreateDto(TransactionType.Income, 1000f, "salary", CurrentMonthDay(5), null, wallet.Id),
+            JsonOptions);
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(wallet.Id, date: CurrentMonthDay(10)), JsonOptions);
+
+        var rawBody = await client.GetStringAsync("/api/Transaction/monthly?months=6");
+        rawBody.Should().Contain("\"period\"").And.Contain("\"income\"").And.Contain("\"expenses\"");
+
+        var stats = await client.GetFromJsonAsync<List<TransactionMonthlyDto>>(
+            "/api/Transaction/monthly?months=6", JsonOptions);
+
+        stats.Should().HaveCount(6);
+        stats!.Select(s => s.Period).Should().BeInAscendingOrder();
+        stats.Take(5).Should().OnlyContain(s => s.Income == 0f && s.Expenses == 0f);
+        stats[^1].Income.Should().Be(1000f);
+        stats[^1].Expenses.Should().Be(650f);
+    }
+
+    [Fact]
+    public async Task MonthlyStats_ShouldFilterByWallet()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var defaultWallet = await GetDefaultWalletAsync(client);
+        var secondResponse = await client.PostAsJsonAsync("/api/Wallet", new WalletCreateDto("Épargne"));
+        secondResponse.EnsureSuccessStatusCode();
+        var secondWallet = await secondResponse.Content.ReadFromJsonAsync<WalletResponseDto>(JsonOptions);
+
+        await client.PostAsJsonAsync(
+            "/api/Transaction",
+            new TransactionCreateDto(TransactionType.Income, 1000f, "salary", CurrentMonthDay(5), null, defaultWallet.Id),
+            JsonOptions);
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(secondWallet!.Id, amount: 100f, date: CurrentMonthDay(6)), JsonOptions);
+
+        var all = await client.GetFromJsonAsync<List<TransactionMonthlyDto>>(
+            "/api/Transaction/monthly?months=6", JsonOptions);
+        var filtered = await client.GetFromJsonAsync<List<TransactionMonthlyDto>>(
+            $"/api/Transaction/monthly?walletId={secondWallet.Id}&months=6", JsonOptions);
+
+        all![^1].Income.Should().Be(1000f);
+        all[^1].Expenses.Should().Be(100f);
+        filtered![^1].Income.Should().Be(0f);
+        filtered[^1].Expenses.Should().Be(100f);
+    }
+
+    [Fact]
+    public async Task MonthlyStats_ShouldRespectMonthsParameter_AndDefaultToTwelve()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+
+        var threeMonths = await client.GetFromJsonAsync<List<TransactionMonthlyDto>>(
+            "/api/Transaction/monthly?months=3", JsonOptions);
+        var defaultRange = await client.GetFromJsonAsync<List<TransactionMonthlyDto>>(
+            "/api/Transaction/monthly", JsonOptions);
+
+        threeMonths.Should().HaveCount(3);
+        defaultRange.Should().HaveCount(12);
+    }
+
+    [Fact]
+    public async Task MonthlyStats_ShouldOnlyAggregateCurrentUserTransactions()
+    {
+        var clientA = await _factory.CreateAuthenticatedClientAsync();
+        var clientB = await _factory.CreateAuthenticatedClientAsync();
+        var walletA = await GetDefaultWalletAsync(clientA);
+
+        await clientA.PostAsJsonAsync(
+            "/api/Transaction",
+            new TransactionCreateDto(TransactionType.Income, 1000f, "salary", CurrentMonthDay(5), null, walletA.Id),
+            JsonOptions);
+
+        var statsB = await clientB.GetFromJsonAsync<List<TransactionMonthlyDto>>(
+            "/api/Transaction/monthly?months=6", JsonOptions);
+
+        statsB.Should().HaveCount(6);
+        statsB.Should().OnlyContain(s => s.Income == 0f && s.Expenses == 0f);
+    }
+
+    private static DateTime CurrentMonthDay(int day) =>
+        new DateTime(DateTime.Today.Year, DateTime.Today.Month, day);
+
     private static async Task<WalletResponseDto> GetDefaultWalletAsync(HttpClient client)
     {
         var wallets = await client.GetFromJsonAsync<List<WalletResponseDto>>("/api/Wallet", JsonOptions);

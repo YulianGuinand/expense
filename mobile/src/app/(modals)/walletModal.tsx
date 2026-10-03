@@ -22,12 +22,14 @@ export default function WalletModal() {
   const params = useLocalSearchParams<{
     id?: string;
     name?: string;
+    goal?: string;
   }>();
 
   const parsedId = Number(params.id);
   const isEdit = params.id != null && Number.isFinite(parsedId);
 
   const [name, setName] = useState(params?.name || "");
+  const [goal, setGoal] = useState(params?.goal || "");
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -35,10 +37,10 @@ export default function WalletModal() {
     queryClient.invalidateQueries({ queryKey: queryKeys.wallets.all });
 
   const saveMutation = useMutation({
-    mutationFn: async (walletName: string) =>
+    mutationFn: async (payload: { name: string; goal: number | null }) =>
       isEdit
-        ? walletService.update(parsedId, { name: walletName })
-        : walletService.create({ name: walletName }),
+        ? walletService.update(parsedId, payload)
+        : walletService.create(payload),
     onSuccess: async () => {
       await invalidateWallets();
       router.back();
@@ -89,7 +91,21 @@ export default function WalletModal() {
       return;
     }
 
-    saveMutation.mutate(trimmedName);
+    const trimmedGoal = goal.trim();
+    let goalValue: number | null = null;
+    if (trimmedGoal) {
+      const parsedGoal = parseFloat(trimmedGoal.replace(",", "."));
+      if (!Number.isFinite(parsedGoal) || parsedGoal <= 0) {
+        Alert.alert(
+          "Objectif invalide",
+          "L'objectif doit être supérieur à 0.",
+        );
+        return;
+      }
+      goalValue = parsedGoal;
+    }
+
+    saveMutation.mutate({ name: trimmedName, goal: goalValue });
   };
 
   const onDelete = () => {
@@ -129,6 +145,16 @@ export default function WalletModal() {
               value={name}
               onChangeText={setName}
               maxLength={MAX_NAME_LENGTH}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Typo color={colors.neutral200}>Objectif (optionnel)</Typo>
+            <Input
+              placeholder="Ex : 1000"
+              value={goal}
+              onChangeText={setGoal}
+              keyboardType="decimal-pad"
             />
           </View>
         </ScrollView>

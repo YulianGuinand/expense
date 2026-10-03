@@ -1,7 +1,7 @@
 import { apiClient } from "./apiClient";
 import {
   CreateTransactionInput,
-  TransactionSummary,
+  MonthlyStat,
   TransactionType,
   UpdateTransactionInput,
 } from "@/types";
@@ -13,6 +13,11 @@ export type TransactionFilters = {
   from?: string;
   to?: string;
   limit?: number;
+};
+
+export type MonthlyStatsFilters = {
+  walletId?: number;
+  months?: number;
 };
 
 export const transactionService = {
@@ -28,9 +33,9 @@ export const transactionService = {
     return response.data;
   },
 
-  async summary(filters: Pick<TransactionFilters, "from" | "to"> = {}): Promise<TransactionSummary> {
-    const response = await apiClient.get<TransactionSummary>(
-      "/Transaction/summary",
+  async monthlyStats(filters: MonthlyStatsFilters = {}): Promise<MonthlyStat[]> {
+    const response = await apiClient.get<MonthlyStat[]>(
+      "/Transaction/monthly",
       { params: filters },
     );
     return response.data;

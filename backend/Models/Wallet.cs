@@ -9,4 +9,5 @@ public class Wallet
     public float Amount {get; set;}
     public float TotalIncome {get; set;}
     public float TotalExpenses {get; set;}
+    public float? Goal {get; set;}
 }

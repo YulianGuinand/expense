@@ -25,6 +25,7 @@ export function WalletListItem({
       params: {
         id: String(item.id),
         name: item.name,
+        ...(item.goal != null ? { goal: String(item.goal) } : {}),
       },
     });
   };

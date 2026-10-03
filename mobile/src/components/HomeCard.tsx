@@ -3,8 +3,7 @@ import { scale, verticalScale } from "@/utils/styling";
 import { ImageBackground } from "expo-image";
 import {
   ArrowDownIcon,
-  ArrowUpIcon,
-  DotsThreeOutlineIcon,
+  ArrowUpIcon
 } from "phosphor-react-native";
 import { StyleSheet, View } from "react-native";
 import { Typo } from "./Typo";
@@ -38,11 +37,6 @@ export function HomeCard({
             <Typo color={colors.neutral800} size={17} fontWeight={"500"}>
               Solde total
             </Typo>
-            <DotsThreeOutlineIcon
-              size={verticalScale(23)}
-              color={colors.black}
-              weight="fill"
-            />
           </View>
 
           <Typo color={colors.black} size={30} fontWeight={"bold"}>

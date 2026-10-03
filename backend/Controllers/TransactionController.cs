@@ -56,6 +56,22 @@ public class TransactionController : ControllerBase
         return Ok(summary);
     }
 
+    [HttpGet("monthly")]
+    [Authorize]
+    public async Task<IActionResult> GetMonthlyStats(
+        [FromQuery] int? walletId,
+        [FromQuery] int? months)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+        {
+            return Unauthorized(new { message = "Utilisateur non identifiǸ." });
+        }
+
+        var stats = await _transactionService.GetMonthlyStatsAsync(userId.Value, walletId, months);
+        return Ok(stats);
+    }
+
     [HttpGet("{id:int}")]
     [Authorize]
     public async Task<IActionResult> GetTransactionById(int id)

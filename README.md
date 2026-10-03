@@ -77,32 +77,33 @@ expense/
 ├── backend/                        # API Web ASP.NET Core 9
 │   ├── Controllers/                # Points d'entree HTTP REST
 │   │   ├── AuthController.cs       # Endpoints register (wallet par defaut "01. Personnel") et login
-│   │   ├── TransactionController.cs # Endpoints CRUD transactions, filtres et resume (proteges JWT)
+│   │   ├── TransactionController.cs # Endpoints CRUD transactions, filtres, resume et stats mensuelles (proteges JWT)
 │   │   ├── UserController.cs       # Endpoints utilisateurs proteges et admin
 │   │   └── WalletController.cs     # Endpoints CRUD des portefeuilles (proteges JWT)
 │   ├── Data/                       # Couche d'acces aux donnees
 │   │   └── AppDbContext.cs         # Contexte EF Core et declaration des DbSets
 │   ├── DTOs/                       # Objets de transfert de donnees immuables
-│   │   ├── TransactionDto.cs       # Records C# TransactionCreateDto, TransactionUpdateDto, TransactionResponseDto, TransactionSummaryDto
+│   │   ├── TransactionDto.cs       # Records C# TransactionCreateDto, TransactionUpdateDto, TransactionResponseDto, TransactionSummaryDto, TransactionMonthlyDto
 │   │   ├── UserDto.cs              # Records C# UserRegisterDto et UserLoginDto
-│   │   └── WalletDto.cs            # Records C# WalletCreateDto, WalletUpdateDto, WalletResponseDto
+│   │   └── WalletDto.cs            # Records C# WalletCreateDto, WalletUpdateDto, WalletResponseDto (goal optionnel)
 │   ├── Migrations/                 # Historique des migrations relationnelles EF Core
 │   │   ├── 20261001183053_InitialCreate.cs
 │   │   ├── 20261001183408_AddRoleToUser.cs
 │   │   ├── 20261002213657_AddWallet.cs
 │   │   ├── 20261002220728_AddWalletUserId.cs
 │   │   ├── 20261003103841_AddTransaction.cs
+│   │   ├── 20261003132228_AddGoalToWallet.cs
 │   │   └── AppDbContextModelSnapshot.cs
 │   ├── Models/                     # Modeles de domaine / Entites de base de donnees
 │   │   ├── Transaction.cs          # Entite Transaction (Id, UserId, WalletId, Type, Amount, Category, Date, Description)
 │   │   ├── TransactionType.cs      # Enum TransactionType (Income, Expense)
 │   │   ├── User.cs                 # Entite User (Id, Username, Email, PasswordHash, Role)
-│   │   └── Wallet.cs               # Entite Wallet (Id, UserId, Name, Amount, TotalIncome, TotalExpenses)
+│   │   └── Wallet.cs               # Entite Wallet (Id, UserId, Name, Amount, TotalIncome, TotalExpenses, Goal?)
 │   ├── Properties/
 │   │   └── launchSettings.json     # Profils de lancement HTTP (5256) et HTTPS (7231)
 │   ├── Services/                   # Logique metier et cryptographie applicative
 │   │   ├── AuthService.cs          # Fabrication des jetons JWT et claims
-│   │   ├── TransactionService.cs   # Regles metier transactions (validation, filtres, recalcul des totaux de portefeuille)
+│   │   ├── TransactionService.cs   # Regles metier transactions (validation, filtres, stats mensuelles, recalcul des totaux de portefeuille)
 │   │   └── WalletService.cs        # Regles metier portefeuilles (validation, isolation par utilisateur)
 │   ├── appsettings.json            # Configuration active locale (BDD, JWT)
 │   ├── appsettings.json.example    # Gabarit de configuration distribue sur Git
@@ -141,7 +142,7 @@ expense/
 │   │   │   │   ├── _layout.tsx     # Barre de navigation inferieure
 │   │   │   │   ├── index.tsx       # Tableau de bord principal (Home)
 │   │   │   │   ├── profile.tsx     # Gestion de compte utilisateur
-│   │   │   │   ├── statistics.tsx  # Analyse graphique des flux
+│   │   │   │   ├── statistics.tsx  # Statistiques : 2 onglets Revenu/Depense, graphique 6 mois et objectif
 │   │   │   │   └── wallet.tsx      # Vue detaillee des portefeuilles
 │   │   │   ├── _layout.tsx         # Layout racine (Fournisseurs de contexte globaux)
 │   │   │   └── index.tsx           # Routeur d'aiguillage initial
@@ -153,7 +154,7 @@ expense/
 │   │   │   ├── api/
 │   │   │   │   ├── apiClient.ts    # Instance Axios, intercepteurs JWT et session glissante
 │   │   │   │   ├── authService.ts  # Appels REST types (login, register, getMe)
-│   │   │   │   ├── transactionService.ts # Appels REST types des transactions (filtres, resume, CRUD)
+│   │   │   │   ├── transactionService.ts # Appels REST types des transactions (filtres, stats mensuelles, CRUD)
 │   │   │   │   └── walletService.ts # Appels REST types des portefeuilles (CRUD)
 │   │   │   ├── query/
 │   │   │   │   ├── queryClient.ts  # Configuration du cache TanStack Query
@@ -214,6 +215,10 @@ Le backend est concu suivant les principes de la separation des responsabilites 
 - **Historique des Migrations** :
   - `20261001183053_InitialCreate` : Installe la table de base `Users` (Id, Username, Email, PasswordHash).
   - `20261001183408_AddRoleToUser` : Ajoute de maniere non-destructive la colonne `Role` avec valeur par defaut.
+  - `20261002213657_AddWallet` : Cree la table `Wallets` (nom, montants).
+  - `20261002220728_AddWalletUserId` : Lie chaque portefeuille a son proprietaire (`UserId`).
+  - `20261003103841_AddTransaction` : Cree la table `Transactions` (type, montant, categorie, date, description) avec FK en cascade vers `Users`/`Wallets`.
+  - `20261003132228_AddGoalToWallet` : Ajoute la colonne nullable `Goal` (objectif optionnel en euros) a `Wallets`.
 
 ---
 
@@ -473,19 +478,22 @@ Le projet **backend.Tests** garantit la fiabilite de la couche serveur via deux 
 backend.Tests/
 ├── UnitTests/
 │   ├── AuthServiceTests.cs             # Test de generation unitaire du token JWT
-│   └── WalletServiceTests.cs           # Tests unitaires de la logique metier des portefeuilles
+│   ├── TransactionServiceTests.cs      # Tests unitaires des transactions et des stats mensuelles
+│   └── WalletServiceTests.cs           # Tests unitaires de la logique metier des portefeuilles (dont objectif)
 └── IntegrationTests/
     ├── ExpenseApiFactory.cs            # Fabrique hermétique (EF Core InMemory, sans MySQL)
     ├── TestAuthHelper.cs               # Inscription et creation de clients HttpClient authentifiés
     ├── AuthControllerIntegrationTests.cs   # Validation du rejet en cas d'identifiants invalides
+    ├── TransactionControllerIntegrationTests.cs # Validation des transactions et de l'endpoint monthly (401/200/404)
     ├── UserControllerIntegrationTests.cs   # Validation du statut 401 sur routes protegees
-    └── WalletControllerIntegrationTests.cs # Validation du CRUD des portefeuilles (401/201/400/404)
+    └── WalletControllerIntegrationTests.cs # Validation du CRUD des portefeuilles et de l'objectif (401/201/400/404)
 ```
 
 #### 1. Tests Unitaires (`UnitTests/`)
 - `AuthServiceTests.cs` : instancient directement `AuthService` en lui injectant une configuration memoire (`AddInMemoryCollection`).
 - Valident de maniere isolee que la methode `GenerateJwtToken(user)` produit un jeton valide et que les claims (`name`, `email`, `role`) concordent fidelement avec l'entite sans faire appel au reseau ni a la base de donnees.
-- `TransactionServiceTests.cs` : couvrent les validations (montant, type, date, longueurs), les filtres, l'isolation multi-utilisateurs et le recalcul des agrégats de portefeuille (`Amount`, `TotalIncome`, `TotalExpenses`) apres chaque création, modification ou suppression.
+- `TransactionServiceTests.cs` : couvrent les validations (montant, type, date, longueurs), les filtres, l'isolation multi-utilisateurs, le recalcul des agrégats de portefeuille (`Amount`, `TotalIncome`, `TotalExpenses`) apres chaque création, modification ou suppression, ainsi que les stats mensuelles (`GetMonthlyStatsAsync` : groupement par mois, remplissage des mois vides, clamp de `months`, exclusion des dates hors fenetre).
+- `WalletServiceTests.cs` : couvrent le CRUD, l'isolation par utilisateur, la suppression en cascade des transactions et l'objectif optionnel (`Goal` : création, mise a jour, effacement, rejet si `<= 0`).
 
 #### 2. Tests d'Integration (`IntegrationTests/`)
 - Exploitent la classe `WebApplicationFactory<Program>` fournie par le paquet `Microsoft.AspNetCore.Mvc.Testing`.
@@ -494,8 +502,9 @@ backend.Tests/
 - Un client HTTP virtuel (`HttpClient`) soumet des requetes REELLES vers les controleurs et valide :
   - Que l'appel a `/api/Auth/login` avec des identifiants errones declenche un code de reponse `401 Unauthorized`.
   - Que les appels a `/api/User` ou `/api/User/admin-only` sans entete Authorization retournent immediatement un code de refus `401 Unauthorized`.
-  - Que le CRUD `/api/Wallet` exige un jeton (`401`), accepte un portefeuille valide (`201`), refuse un nom vide (`400`) et isole strictement les portefeuilles entre utilisateurs (`404`).
+  - Que le CRUD `/api/Wallet` exige un jeton (`401`), accepte un portefeuille valide (`201`), refuse un nom vide (`400`), valide l'objectif (`"L'objectif doit être supérieur à 0."` en `400`) et isole strictement les portefeuilles entre utilisateurs (`404`).
   - Que le CRUD `/api/Transaction` exige un jeton (`401`), sérialise `type` sous forme de chaine (`"income"` / `"expense"`), refuse un montant nul (`400`), met a jour les totaux du portefeuille apres chaque ecriture et isole strictement les transactions entre utilisateurs (`404`).
+  - Que `GET /api/Transaction/monthly` exige un jeton (`401`), renvoie des buckets `period`/`income`/`expenses` zero-fillés, respecte `walletId` et `months` et n'agrege que les transactions de l'utilisateur connecte.
 
 ### 5.2 Execution des Tests
 

@@ -90,10 +90,27 @@ export type UpdateTransactionInput = {
   walletId: number;
 };
 
-export type TransactionSummary = {
+export type MonthlyStat = {
+  period: string;
+  income: number;
+  expenses: number;
+};
+
+export type StatsTab = "income" | "expense";
+
+export type StatsBarChartProps = {
+  data: MonthlyStat[];
+  type: StatsTab;
+  selectedIndex: number | null;
+  onSelect: (index: number) => void;
+};
+
+export type GoalCardProps = {
+  goal: number;
+  amount: number;
   totalIncome: number;
   totalExpenses: number;
-  balance: number;
+  dataSourcePeriod?: string;
 };
 
 export type CategoryType = {
@@ -210,6 +227,7 @@ export type WalletType = {
   amount?: number;
   totalIncome?: number;
   totalExpenses?: number;
+  goal?: number | null;
   image?: any;
   uid?: string;
   created?: Date;
@@ -217,8 +235,10 @@ export type WalletType = {
 
 export type CreateWalletInput = {
   name: string;
+  goal?: number | null;
 };
 
 export type UpdateWalletInput = {
   name: string;
+  goal?: number | null;
 };

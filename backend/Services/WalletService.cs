@@ -52,10 +52,17 @@ public class WalletService
             return WalletResult.Invalid(nameError);
         }
 
+        var goalError = ValidateGoal(request.Goal);
+        if (goalError != null)
+        {
+            return WalletResult.Invalid(goalError);
+        }
+
         var wallet = new Wallet
         {
             UserId = userId,
-            Name = request.Name.Trim()
+            Name = request.Name.Trim(),
+            Goal = request.Goal
         };
 
         _context.Wallets.Add(wallet);
@@ -72,6 +79,12 @@ public class WalletService
             return WalletResult.Invalid(nameError);
         }
 
+        var goalError = ValidateGoal(request.Goal);
+        if (goalError != null)
+        {
+            return WalletResult.Invalid(goalError);
+        }
+
         var wallet = await _context.Wallets
             .FirstOrDefaultAsync(w => w.Id == walletId && w.UserId == userId);
 
@@ -81,6 +94,7 @@ public class WalletService
         }
 
         wallet.Name = request.Name.Trim();
+        wallet.Goal = request.Goal;
         await _context.SaveChangesAsync();
 
         return WalletResult.Ok(ToDto(wallet));
@@ -122,6 +136,16 @@ public class WalletService
         return null;
     }
 
+    private static string? ValidateGoal(float? goal)
+    {
+        if (goal.HasValue && goal.Value <= 0)
+        {
+            return "L'objectif doit être supérieur à 0.";
+        }
+
+        return null;
+    }
+
     private static WalletResponseDto ToDto(Wallet wallet) =>
-        new(wallet.Id, wallet.Name, wallet.Amount, wallet.TotalIncome, wallet.TotalExpenses);
+        new(wallet.Id, wallet.Name, wallet.Amount, wallet.TotalIncome, wallet.TotalExpenses, wallet.Goal);
 }

@@ -205,4 +205,76 @@ public class WalletServiceTests : IDisposable
 
         _context.Transactions.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task CreateWallet_WithGoal_ShouldPersistGoal()
+    {
+        var result = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("Épargne", 1000f));
+
+        result.Success.Should().BeTrue();
+        result.Wallet!.Goal.Should().Be(1000f);
+    }
+
+    [Fact]
+    public async Task CreateWallet_WithoutGoal_ShouldHaveNullGoal()
+    {
+        var result = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("Sans objectif"));
+
+        result.Success.Should().BeTrue();
+        result.Wallet!.Goal.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(-50f)]
+    public async Task CreateWallet_WithNonPositiveGoal_ShouldFail(float goal)
+    {
+        var result = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("Épargne", goal));
+
+        result.Success.Should().BeFalse();
+        result.NotFound.Should().BeFalse();
+        result.Error.Should().Be("L'objectif doit être supérieur à 0.");
+    }
+
+    [Fact]
+    public async Task UpdateWallet_ShouldSetGoal()
+    {
+        var created = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("Objectif"));
+
+        var result = await _walletService.UpdateWalletAsync(UserId, created.Wallet!.Id, new WalletUpdateDto("Objectif", 1000f));
+
+        result.Success.Should().BeTrue();
+        result.Wallet!.Goal.Should().Be(1000f);
+
+        var reloaded = await _walletService.GetWalletAsync(UserId, created.Wallet.Id);
+        reloaded.Wallet!.Goal.Should().Be(1000f);
+    }
+
+    [Fact]
+    public async Task UpdateWallet_WithoutGoal_ShouldClearGoal()
+    {
+        var created = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("Objectif", 500f));
+
+        var result = await _walletService.UpdateWalletAsync(UserId, created.Wallet!.Id, new WalletUpdateDto("Objectif"));
+
+        result.Success.Should().BeTrue();
+        result.Wallet!.Goal.Should().BeNull();
+
+        var reloaded = await _walletService.GetWalletAsync(UserId, created.Wallet.Id);
+        reloaded.Wallet!.Goal.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateWallet_WithNonPositiveGoal_ShouldFail_WithoutChangingWallet()
+    {
+        var created = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("Objectif", 500f));
+
+        var result = await _walletService.UpdateWalletAsync(UserId, created.Wallet!.Id, new WalletUpdateDto("Objectif", 0f));
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be("L'objectif doit être supérieur à 0.");
+
+        var reloaded = await _walletService.GetWalletAsync(UserId, created.Wallet.Id);
+        reloaded.Wallet!.Goal.Should().Be(500f);
+    }
 }

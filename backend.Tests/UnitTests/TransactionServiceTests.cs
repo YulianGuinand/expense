@@ -398,6 +398,119 @@ public class TransactionServiceTests : IDisposable
         summary.Balance.Should().Be(0f);
     }
 
+    [Fact]
+    public async Task GetMonthlyStats_ShouldAggregateByMonthAndType()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 1000f, "salary", MonthDate(0, 5), null, walletId));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: MonthDate(0, 10)));
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 500f, "gift", MonthDate(1, 20), null, walletId));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, amount: 300f, date: MonthDate(1, 15)));
+
+        var stats = await _transactionService.GetMonthlyStatsAsync(UserId, months: 2);
+
+        stats.Should().HaveCount(2);
+        stats[0].Period.Should().Be(PeriodOf(1));
+        stats[0].Income.Should().Be(500f);
+        stats[0].Expenses.Should().Be(300f);
+        stats[1].Period.Should().Be(PeriodOf(0));
+        stats[1].Income.Should().Be(1000f);
+        stats[1].Expenses.Should().Be(650f);
+    }
+
+    [Fact]
+    public async Task GetMonthlyStats_ShouldZeroFillEmptyMonths_InAscendingOrder()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: MonthDate(0, 10)));
+
+        var stats = await _transactionService.GetMonthlyStatsAsync(UserId, months: 6);
+
+        stats.Should().HaveCount(6);
+        stats.Select(s => s.Period).Should().BeInAscendingOrder();
+        stats.Take(5).Should().OnlyContain(s => s.Income == 0f && s.Expenses == 0f);
+        stats[^1].Expenses.Should().Be(650f);
+    }
+
+    [Fact]
+    public async Task GetMonthlyStats_ShouldOnlyAggregateSelectedWallet()
+    {
+        var walletA = await CreateWalletAsync(UserId, "Revenus");
+        var walletB = await CreateWalletAsync(UserId, "Dépenses");
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 1000f, "salary", MonthDate(0, 5), null, walletA));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletB, amount: 100f, date: MonthDate(0, 6)));
+
+        var statsA = await _transactionService.GetMonthlyStatsAsync(UserId, walletId: walletA, months: 1);
+        var statsB = await _transactionService.GetMonthlyStatsAsync(UserId, walletId: walletB, months: 1);
+        var statsAll = await _transactionService.GetMonthlyStatsAsync(UserId, months: 1);
+
+        statsA[^1].Income.Should().Be(1000f);
+        statsA[^1].Expenses.Should().Be(0f);
+        statsB[^1].Income.Should().Be(0f);
+        statsB[^1].Expenses.Should().Be(100f);
+        statsAll[^1].Income.Should().Be(1000f);
+        statsAll[^1].Expenses.Should().Be(100f);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(999, 36)]
+    public async Task GetMonthlyStats_ShouldClampRequestedMonths(int months, int expectedCount)
+    {
+        var stats = await _transactionService.GetMonthlyStatsAsync(UserId, months: months);
+
+        stats.Should().HaveCount(expectedCount);
+    }
+
+    [Fact]
+    public async Task GetMonthlyStats_WithoutMonths_ShouldDefaultToTwelveBuckets()
+    {
+        var stats = await _transactionService.GetMonthlyStatsAsync(UserId);
+
+        stats.Should().HaveCount(TransactionService.DefaultMonthlyRange);
+    }
+
+    [Fact]
+    public async Task GetMonthlyStats_ShouldExcludeOlderAndFutureTransactions()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 999f, "old", MonthDate(7, 10), null, walletId));
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 888f, "future", MonthDate(-2, 10), null, walletId));
+
+        var stats = await _transactionService.GetMonthlyStatsAsync(UserId, months: 6);
+
+        stats.Should().HaveCount(6);
+        stats.Should().OnlyContain(s => s.Income == 0f && s.Expenses == 0f);
+    }
+
+    [Fact]
+    public async Task GetMonthlyStats_ShouldOnlyAggregateCurrentUserTransactions()
+    {
+        var otherWalletId = await CreateWalletAsync(OtherUserId, "Autrui");
+        await _transactionService.CreateTransactionAsync(OtherUserId, ExpenseDto(otherWalletId, date: MonthDate(0, 5)));
+
+        var stats = await _transactionService.GetMonthlyStatsAsync(UserId, months: 1);
+
+        stats.Should().ContainSingle();
+        stats.Should().OnlyContain(s => s.Income == 0f && s.Expenses == 0f);
+    }
+
+    private static DateTime MonthDate(int monthsAgo, int day) =>
+        new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1)
+            .AddMonths(-monthsAgo)
+            .AddDays(day - 1);
+
+    private static string PeriodOf(int monthsAgo)
+    {
+        var month = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-monthsAgo);
+        return $"{month.Year:D4}-{month.Month:D2}";
+    }
+
     private async Task<int> CreateWalletAsync(int userId, string name = "Personnel")
     {
         var result = await _walletService.CreateWalletAsync(userId, new WalletCreateDto(name));

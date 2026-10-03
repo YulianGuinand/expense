@@ -17,6 +17,8 @@ Ce document decrit l'architecture technique, les regles de developpement et la p
 - **Performances Listes** : @shopify/flash-list (2.0.2)
 - **Animations** : React Native Reanimated (4.5.1) et React Native Worklets (0.10.1)
 - **Icones** : phosphor-react-native (3.0.6)
+- **Graphiques** : react-native-gifted-charts (^1.4.80, avec expo-linear-gradient ~57.0.2 et react-native-svg) — barres mensuelles de la page Statistiques
+- **Onglets** : @react-native-segmented-control/segmented-control (2.5.7, module natif — impose une reconstruction du dev client, `npx expo run:android|ios`)
 
 ---
 
@@ -69,10 +71,12 @@ mobile/
     │   │   └── BlobatarAvatar.tsx  # Avatar deterministe memoise via @blobatar/react-native
     │   ├── BackButton.tsx
     │   ├── Button.tsx
+    │   ├── GoalCard.tsx             # Bloc objectif (progression, revenu %, depense %)
     │   ├── Header.tsx
     │   ├── HomeCard.tsx
     │   ├── Input.tsx
     │   ├── ScreenWrapper.tsx
+    │   ├── StatsBarChart.tsx        # Graphique en barres mensuelles (gifted-charts)
     │   ├── TransactionList.tsx
     │   └── Typo.tsx
     ├── constants/                  # Theme, couleurs et dictionnaires de categories (labels, icones)
@@ -85,7 +89,7 @@ mobile/
     │   ├── api/
     │   │   ├── apiClient.ts        # Instance Axios, intercepteurs JWT et session glissante
     │   │   ├── authService.ts      # Appels REST typés (login, register, getMe, updateUsername)
-    │   │   ├── transactionService.ts # Appels REST typés des transactions (filtres, résumé, CRUD)
+    │   │   ├── transactionService.ts # Appels REST typés des transactions (filtres, stats mensuelles, CRUD)
     │   │   └── walletService.ts    # Appels REST typés des portefeuilles (liste, création, modification, suppression)
     │   ├── query/
     │   │   ├── queryClient.ts      # Configuration du cache (staleTime, gcTime, politiques de re-tentative)
@@ -112,9 +116,15 @@ mobile/
 4. **Cache des Donnees Serveur (TanStack Query)** :
    - Les donnees serveur sont lues via `useQuery` (cles centrees dans `src/services/query/queryKeys.ts`) et ecrites via `useMutation`.
    - Toute mutation (creation, modification, suppression) appelle `queryClient.invalidateQueries(...)` pour re-actualiser les ecrans actifs.
-   - Les mutations de transaction invalident `["transactions"]` (liste + resume) **et** `["wallets"]` (les soldes des portefeuilles sont recalcules cote API).
+   - Les mutations de transaction invalident `["transactions"]` (liste, détail, stats mensuelles) **et** `["wallets"]` (les soldes des portefeuilles sont recalcules cote API).
    - Une reponse de moins de 30 secondes est consideree fraiche : retour sur un ecran ou changement d'etat applicatif n'entraune alors aucune requete reseau supplementaire.
    - Le cache est entierement purge (`queryClient.clear()`) a la deconnexion et en cas de reponse 401, pour eviter toute fuite de donnees entre comptes.
+5. **Page Statistiques** :
+   - Deux onglets `Revenu` / `Dépense` (Segmented Control natif) selectionnent la serie affichee : barres vertes (`colors.green`) pour les revenus, rouges (`colors.rose`) pour les depenses ; le mois selectionne reste en opacite 1 (`highlightedBarIndex`), les autres sont attenues (`lowlightOpacity`).
+   - Le graphique couvre les 6 derniers mois via `GET /api/Transaction/monthly?months=6` (cles `queryKeys.transactions.monthly(walletId, months)`).
+   - Le selecteur de portefeuille inclut l'entree « Tous les wallets » (valeur `"all"` → `walletId` absent de la requete).
+   - L'objectif s'affiche uniquement pour un portefeuille selectionne doté d'un `goal` : progression = `montant/objectif`, revenu % = `totalIncome/objectif`, depense % = `totalExpenses/objectif` — toutes les valeurs proviennent du cache `["wallets"]`, sans appel API supplementaire.
+   - L'objectif se modifie dans le formulaire portefeuille (`walletModal`, champ optionnel numerique).
 
 ---
 
@@ -139,7 +149,15 @@ npx tsc --noEmit
 npx eslint .
 ```
 
-### 5.4 Lancement du Serveur de Developpement Metro
+### 5.4 Reconstruction du Development Client (dependances natives)
+Apres l'ajout ou la mise a jour d'un paquet contenant du code natif (`@react-native-segmented-control/segmented-control`, `expo-linear-gradient`, ...), le dev client doit etre regenere :
+```powershell
+npx expo run:android
+# ou
+npx expo run:ios
+```
+
+### 5.5 Lancement du Serveur de Developpement Metro
 ```powershell
 npx expo start
 ```
@@ -150,7 +168,7 @@ Raccourcis disponibles dans le terminal :
 - `w` : Ouvrir dans le navigateur web.
 - Scanner le QR Code affiche avec l'application Expo Go sur appareil physique.
 
-### 5.5 Test de Compilation et Bundling
+### 5.6 Test de Compilation et Bundling
 ```powershell
 npx expo export --no-bytecode
 ```

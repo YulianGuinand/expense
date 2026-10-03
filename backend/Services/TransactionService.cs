@@ -18,6 +18,8 @@ public class TransactionService
     public const int MaxCategoryLength = 50;
     public const int MaxDescriptionLength = 200;
     public const int MaxResultLimit = 100;
+    public const int MaxMonthlyRange = 36;
+    public const int DefaultMonthlyRange = 12;
 
     private readonly AppDbContext _context;
 
@@ -212,6 +214,53 @@ public class TransactionService
         return new TransactionSummaryDto(totalIncome, totalExpenses, totalIncome - totalExpenses);
     }
 
+    public async Task<IReadOnlyList<TransactionMonthlyDto>> GetMonthlyStatsAsync(
+        int userId,
+        int? walletId = null,
+        int? months = null)
+    {
+        var range = months.HasValue
+            ? Math.Clamp(months.Value, 1, MaxMonthlyRange)
+            : DefaultMonthlyRange;
+
+        var endExclusive = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1);
+        var start = endExclusive.AddMonths(-range);
+
+        var query = _context.Transactions
+            .AsNoTracking()
+            .Where(t => t.UserId == userId && t.Date >= start && t.Date < endExclusive);
+
+        if (walletId.HasValue)
+        {
+            query = query.Where(t => t.WalletId == walletId.Value);
+        }
+
+        var sums = await query
+            .GroupBy(t => new { t.Date.Year, t.Date.Month, t.Type })
+            .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Type, Total = g.Sum(t => t.Amount) })
+            .ToListAsync();
+
+        var byPeriod = new Dictionary<string, (float Income, float Expenses)>();
+        foreach (var row in sums)
+        {
+            var period = FormatPeriod(row.Year, row.Month);
+            byPeriod.TryGetValue(period, out var current);
+            byPeriod[period] = row.Type == TransactionType.Income
+                ? (current.Income + row.Total, current.Expenses)
+                : (current.Income, current.Expenses + row.Total);
+        }
+
+        var stats = new List<TransactionMonthlyDto>(range);
+        for (var cursor = start; cursor < endExclusive; cursor = cursor.AddMonths(1))
+        {
+            var period = FormatPeriod(cursor.Year, cursor.Month);
+            byPeriod.TryGetValue(period, out var totals);
+            stats.Add(new TransactionMonthlyDto(period, totals.Income, totals.Expenses));
+        }
+
+        return stats;
+    }
+
     private async Task RecalculateWalletAsync(int userId, int walletId)
     {
         var wallet = await _context.Wallets
@@ -272,6 +321,9 @@ public class TransactionService
 
     private static string Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+
+    private static string FormatPeriod(int year, int month) =>
+        $"{year:D4}-{month:D2}";
 
     private static TransactionResponseDto ToDto(Transaction transaction) =>
         new(

@@ -103,11 +103,12 @@ Une fois l'application lancée, l'URL du serveur s'affichera dans le terminal (p
 - `GET /api/User/admin-only` : Espace restreint aux administrateurs (Rôle `Admin`).
 - `GET /api/Wallet` : Liste des portefeuilles de l'utilisateur connecté (Protégé par JWT).
 - `GET /api/Wallet/{id}` : Détail d'un portefeuille (Protégé par JWT).
-- `POST /api/Wallet` : Création d'un portefeuille (201 Created, Protégé par JWT).
-- `PUT /api/Wallet/{id}` : Renommage d'un portefeuille (Protégé par JWT).
+- `POST /api/Wallet` : Création d'un portefeuille (`goal` optionnel, 201 Created, Protégé par JWT).
+- `PUT /api/Wallet/{id}` : Mise à jour du nom et de l'objectif (`goal`, Protégé par JWT ; absent = objectif effacé).
 - `DELETE /api/Wallet/{id}` : Suppression d'un portefeuille (Protégé par JWT, supprime aussi ses transactions).
 - `GET /api/Transaction` : Liste des transactions de l'utilisateur connecté, filtrable (`?walletId&type&category&from&to&limit`, tri date décroissante, Protégé par JWT).
 - `GET /api/Transaction/summary` : Agrégats (`totalIncome`, `totalExpenses`, `balance`), filtrables par période (`?from&to`, Protégé par JWT).
+- `GET /api/Transaction/monthly` : Agrégats par mois sur les `N` derniers mois (`?walletId&months`, défaut 12, clampé 1..36) — renvoie `[{ period: "2026-10", income, expenses }]`, mois vides inclus à 0, ordre croissant (Protégé par JWT).
 - `GET /api/Transaction/{id}` : Détail d'une transaction (Protégé par JWT).
 - `POST /api/Transaction` : Création d'une transaction (201 Created, Protégé par JWT).
 - `PUT /api/Transaction/{id}` : Modification d'une transaction (Protégé par JWT).
@@ -116,6 +117,8 @@ Une fois l'application lancée, l'URL du serveur s'affichera dans le terminal (p
 Tous les endpoints `Wallet` et `Transaction` sont isolés par utilisateur : une ressource appartenant à un autre compte renvoie `404 Not Found`.
 
 Chaque création, modification ou suppression de transaction recalcule dans la même transaction SQL les agrégats du portefeuille concerné (`Amount`, `TotalIncome`, `TotalExpenses`). Le champ `type` est sérialisé en chaîne `"income"` / `"expense"`.
+
+L'objectif (`Goal`) d'un portefeuille est optionnel et positif (`"L'objectif doit être supérieur à 0."` sinon) ; il est renvoyé dans tous les DTO `Wallet` et sert au calcul des pourcentages de la page Statistiques côté mobile.
 
 ---
 
