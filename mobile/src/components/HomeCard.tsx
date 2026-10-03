@@ -9,7 +9,22 @@ import {
 import { StyleSheet, View } from "react-native";
 import { Typo } from "./Typo";
 
-export function HomeCard() {
+export type HomeCardProps = {
+  balance: number;
+  totalIncome: number;
+  totalExpenses: number;
+  loading?: boolean;
+};
+
+export function HomeCard({
+  balance,
+  totalIncome,
+  totalExpenses,
+  loading = false,
+}: HomeCardProps) {
+  const formatAmount = (value: number) =>
+    loading ? "--" : `${value.toFixed(2)}€`;
+
   return (
     <ImageBackground
       source={require("@/assets/images/card.png")}
@@ -31,7 +46,7 @@ export function HomeCard() {
           </View>
 
           <Typo color={colors.black} size={30} fontWeight={"bold"}>
-            3564.15€
+            {formatAmount(balance)}
           </Typo>
         </View>
 
@@ -53,7 +68,7 @@ export function HomeCard() {
             </View>
             <View style={{ alignSelf: "center" }}>
               <Typo size={17} color={colors.green} fontWeight={"600"}>
-                735.25€
+                {formatAmount(totalIncome)}
               </Typo>
             </View>
           </View>
@@ -73,7 +88,7 @@ export function HomeCard() {
             </View>
             <View style={{ alignSelf: "center" }}>
               <Typo size={17} color={colors.rose} fontWeight={"600"}>
-                1735.25€
+                {formatAmount(totalExpenses)}
               </Typo>
             </View>
           </View>

@@ -4,17 +4,61 @@ import { HomeCard } from "@/components/HomeCard";
 import { ScreenWrapper } from "@/components/ScreenWrapper";
 import { TransactionList } from "@/components/TransactionList";
 import { Typo } from "@/components/Typo";
-import { mockTransactions } from "@/constants/data";
+import { dropdownStyles } from "@/constants/dropdownStyles";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/contexts/authContext";
+import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
+import { extractApiErrorMessage } from "@/services/api/apiClient";
+import { transactionService } from "@/services/api/transactionService";
+import { walletService } from "@/services/api/walletService";
+import { queryKeys } from "@/services/query/queryKeys";
 import { verticalScale } from "@/utils/styling";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { MagnifyingGlassIcon, PlusIcon } from "phosphor-react-native";
+import { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Dropdown } from "react-native-element-dropdown";
 
 export default function Home() {
   const { user } = useAuth();
   const router = useRouter();
+  const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null);
+
+  const { data: wallets = [], isPending: isWalletsPending } = useQuery({
+    queryKey: queryKeys.wallets.all,
+    queryFn: () => walletService.getAll(),
+  });
+
+  const selectedWallet =
+    wallets.find((wallet) => wallet.id === selectedWalletId) ??
+    (wallets.length > 0 ? wallets[0] : undefined);
+  const walletId = selectedWallet?.id;
+
+  const {
+    data: transactions = [],
+    isPending: isTransactionsPending,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.transactions.list(walletId ?? 0),
+    queryFn: async () => {
+      if (walletId == null) return [];
+      return transactionService.getAll({ walletId, limit: 10 });
+    },
+    enabled: walletId != null,
+  });
+
+  useRefreshOnFocus(queryKeys.transactions.all);
+
+  const errorMessage = error
+    ? extractApiErrorMessage(error, "Impossible de charger vos transactions.")
+    : null;
+
+  const listLoading = walletId != null ? isTransactionsPending : isWalletsPending;
+  const emptyListMessage =
+    walletId == null && !isWalletsPending
+      ? "Aucun portefeuille disponible"
+      : (errorMessage ?? "Aucune transaction dans ce portefeuille");
 
   return (
     <ScreenWrapper>
@@ -50,16 +94,58 @@ export default function Home() {
           contentContainerStyle={styles.scrollViewStyle}
           showsVerticalScrollIndicator={false}
         >
+          {/* wallet selector */}
+          <Dropdown
+            style={dropdownStyles.container}
+            selectedTextStyle={dropdownStyles.selectedText}
+            iconStyle={dropdownStyles.icon}
+            activeColor={colors.neutral700}
+            placeholder="Sélectionner un portefeuille"
+            placeholderStyle={dropdownStyles.placeholder}
+            data={wallets
+              .filter((wallet) => wallet.id != null)
+              .map((wallet) => ({
+                label: wallet.name,
+                value: String(wallet.id),
+              }))}
+            maxHeight={300}
+            labelField="label"
+            valueField="value"
+            value={walletId != null ? String(walletId) : null}
+            onChange={(item) => setSelectedWalletId(Number(item.value))}
+            itemTextStyle={dropdownStyles.itemText}
+            itemContainerStyle={dropdownStyles.itemContainer}
+            containerStyle={dropdownStyles.listContainer}
+          />
+
           {/* card */}
           <View>
-            <HomeCard />
+            <HomeCard
+              balance={selectedWallet?.amount ?? 0}
+              totalIncome={selectedWallet?.totalIncome ?? 0}
+              totalExpenses={selectedWallet?.totalExpenses ?? 0}
+              loading={isWalletsPending}
+            />
           </View>
+
+          {errorMessage && (
+            <Typo size={13} color={colors.rose} style={{ textAlign: "center" }}>
+              {errorMessage}
+            </Typo>
+          )}
 
           <TransactionList
             title="Récentes Transactions"
-            data={mockTransactions}
-            loading={false}
-            emptyListMessage="Aucune transactions ajoutées"
+            data={transactions}
+            loading={listLoading}
+            emptyListMessage={emptyListMessage}
+            onPress={(item) => {
+              if (item.id == null) return;
+              router.push({
+                pathname: "/(modals)/transactionModal",
+                params: { id: String(item.id) },
+              });
+            }}
           />
         </ScrollView>
 

@@ -75,7 +75,7 @@ mobile/
     │   ├── ScreenWrapper.tsx
     │   ├── TransactionList.tsx
     │   └── Typo.tsx
-    ├── constants/                  # Constantes graphiques, couleurs et donnees de test
+    ├── constants/                  # Theme, couleurs et dictionnaires de categories (labels, icones)
     ├── contexts/
     │   ├── authContext.tsx         # Gestion d'etat d'authentification et session utilisateur
     │   └── queryContext.tsx        # QueryClientProvider TanStack Query + focus AppState
@@ -85,6 +85,7 @@ mobile/
     │   ├── api/
     │   │   ├── apiClient.ts        # Instance Axios, intercepteurs JWT et session glissante
     │   │   ├── authService.ts      # Appels REST typés (login, register, getMe, updateUsername)
+    │   │   ├── transactionService.ts # Appels REST typés des transactions (filtres, résumé, CRUD)
     │   │   └── walletService.ts    # Appels REST typés des portefeuilles (liste, création, modification, suppression)
     │   ├── query/
     │   │   ├── queryClient.ts      # Configuration du cache (staleTime, gcTime, politiques de re-tentative)
@@ -111,6 +112,7 @@ mobile/
 4. **Cache des Donnees Serveur (TanStack Query)** :
    - Les donnees serveur sont lues via `useQuery` (cles centrees dans `src/services/query/queryKeys.ts`) et ecrites via `useMutation`.
    - Toute mutation (creation, modification, suppression) appelle `queryClient.invalidateQueries(...)` pour re-actualiser les ecrans actifs.
+   - Les mutations de transaction invalident `["transactions"]` (liste + resume) **et** `["wallets"]` (les soldes des portefeuilles sont recalcules cote API).
    - Une reponse de moins de 30 secondes est consideree fraiche : retour sur un ecran ou changement d'etat applicatif n'entraune alors aucune requete reseau supplementaire.
    - Le cache est entierement purge (`queryClient.clear()`) a la deconnexion et en cas de reponse 401, pour eviter toute fuite de donnees entre comptes.
 

@@ -105,9 +105,17 @@ Une fois l'application lancée, l'URL du serveur s'affichera dans le terminal (p
 - `GET /api/Wallet/{id}` : Détail d'un portefeuille (Protégé par JWT).
 - `POST /api/Wallet` : Création d'un portefeuille (201 Created, Protégé par JWT).
 - `PUT /api/Wallet/{id}` : Renommage d'un portefeuille (Protégé par JWT).
-- `DELETE /api/Wallet/{id}` : Suppression d'un portefeuille (Protégé par JWT).
+- `DELETE /api/Wallet/{id}` : Suppression d'un portefeuille (Protégé par JWT, supprime aussi ses transactions).
+- `GET /api/Transaction` : Liste des transactions de l'utilisateur connecté, filtrable (`?walletId&type&category&from&to&limit`, tri date décroissante, Protégé par JWT).
+- `GET /api/Transaction/summary` : Agrégats (`totalIncome`, `totalExpenses`, `balance`), filtrables par période (`?from&to`, Protégé par JWT).
+- `GET /api/Transaction/{id}` : Détail d'une transaction (Protégé par JWT).
+- `POST /api/Transaction` : Création d'une transaction (201 Created, Protégé par JWT).
+- `PUT /api/Transaction/{id}` : Modification d'une transaction (Protégé par JWT).
+- `DELETE /api/Transaction/{id}` : Suppression d'une transaction (Protégé par JWT).
 
-Tous les endpoints `Wallet` sont isolés par utilisateur : un portefeuille appartenant à un autre compte renvoie `404 Not Found`.
+Tous les endpoints `Wallet` et `Transaction` sont isolés par utilisateur : une ressource appartenant à un autre compte renvoie `404 Not Found`.
+
+Chaque création, modification ou suppression de transaction recalcule dans la même transaction SQL les agrégats du portefeuille concerné (`Amount`, `TotalIncome`, `TotalExpenses`). Le champ `type` est sérialisé en chaîne `"income"` / `"expense"`.
 
 ---
 
@@ -115,11 +123,11 @@ Tous les endpoints `Wallet` sont isolés par utilisateur : un portefeuille appar
 
 ```text
 backend/
-├── Controllers/         # Contrôleurs API (AuthController, UserController, WalletController)
+├── Controllers/         # Contrôleurs API (AuthController, UserController, WalletController, TransactionController)
 ├── Data/                # Contexte de base de données (AppDbContext)
-├── DTOs/                # Objets de transfert de données (UserDto, WalletDto)
-├── Models/              # Entités de la base de données (User, Wallet, etc.)
-├── Services/            # Logique métier (AuthService pour le JWT, WalletService pour les portefeuilles)
+├── DTOs/                # Objets de transfert de données (UserDto, WalletDto, TransactionDto)
+├── Models/              # Entités de la base de données (User, Wallet, Transaction, enum TransactionType)
+├── Services/            # Logique métier (AuthService pour le JWT, WalletService pour les portefeuilles, TransactionService pour les transactions et les agrégats)
 ├── Migrations/          # Fichiers de migration Entity Framework Core
 ├── Properties/          # Paramètres de lancement (launchSettings.json)
 ├── Program.cs           # Point d'entrée et configuration des services / middleware

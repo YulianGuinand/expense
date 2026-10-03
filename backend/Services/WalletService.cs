@@ -96,6 +96,11 @@ public class WalletService
             return WalletResult.Missing();
         }
 
+        var transactions = await _context.Transactions
+            .Where(t => t.WalletId == walletId && t.UserId == userId)
+            .ToListAsync();
+
+        _context.Transactions.RemoveRange(transactions);
         _context.Wallets.Remove(wallet);
         await _context.SaveChangesAsync();
 

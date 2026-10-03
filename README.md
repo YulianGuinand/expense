@@ -77,11 +77,13 @@ expense/
 ├── backend/                        # API Web ASP.NET Core 9
 │   ├── Controllers/                # Points d'entree HTTP REST
 │   │   ├── AuthController.cs       # Endpoints register (wallet par defaut "01. Personnel") et login
+│   │   ├── TransactionController.cs # Endpoints CRUD transactions, filtres et resume (proteges JWT)
 │   │   ├── UserController.cs       # Endpoints utilisateurs proteges et admin
 │   │   └── WalletController.cs     # Endpoints CRUD des portefeuilles (proteges JWT)
 │   ├── Data/                       # Couche d'acces aux donnees
 │   │   └── AppDbContext.cs         # Contexte EF Core et declaration des DbSets
 │   ├── DTOs/                       # Objets de transfert de donnees immuables
+│   │   ├── TransactionDto.cs       # Records C# TransactionCreateDto, TransactionUpdateDto, TransactionResponseDto, TransactionSummaryDto
 │   │   ├── UserDto.cs              # Records C# UserRegisterDto et UserLoginDto
 │   │   └── WalletDto.cs            # Records C# WalletCreateDto, WalletUpdateDto, WalletResponseDto
 │   ├── Migrations/                 # Historique des migrations relationnelles EF Core
@@ -89,14 +91,18 @@ expense/
 │   │   ├── 20261001183408_AddRoleToUser.cs
 │   │   ├── 20261002213657_AddWallet.cs
 │   │   ├── 20261002220728_AddWalletUserId.cs
+│   │   ├── 20261003103841_AddTransaction.cs
 │   │   └── AppDbContextModelSnapshot.cs
 │   ├── Models/                     # Modeles de domaine / Entites de base de donnees
+│   │   ├── Transaction.cs          # Entite Transaction (Id, UserId, WalletId, Type, Amount, Category, Date, Description)
+│   │   ├── TransactionType.cs      # Enum TransactionType (Income, Expense)
 │   │   ├── User.cs                 # Entite User (Id, Username, Email, PasswordHash, Role)
 │   │   └── Wallet.cs               # Entite Wallet (Id, UserId, Name, Amount, TotalIncome, TotalExpenses)
 │   ├── Properties/
 │   │   └── launchSettings.json     # Profils de lancement HTTP (5256) et HTTPS (7231)
 │   ├── Services/                   # Logique metier et cryptographie applicative
 │   │   ├── AuthService.cs          # Fabrication des jetons JWT et claims
+│   │   ├── TransactionService.cs   # Regles metier transactions (validation, filtres, recalcul des totaux de portefeuille)
 │   │   └── WalletService.cs        # Regles metier portefeuilles (validation, isolation par utilisateur)
 │   ├── appsettings.json            # Configuration active locale (BDD, JWT)
 │   ├── appsettings.json.example    # Gabarit de configuration distribue sur Git
@@ -106,9 +112,15 @@ expense/
 ├── backend.Tests/                  # Suite de tests d'assurance qualite
 │   ├── IntegrationTests/           # Tests d'API complets sur WebApplicationFactory
 │   │   ├── AuthControllerIntegrationTests.cs
-│   │   └── UserControllerIntegrationTests.cs
+│   │   ├── ExpenseApiFactory.cs    # Fabrique hermetique (EF Core InMemory)
+│   │   ├── TestAuthHelper.cs       # Helpers d'inscription et de client authentifie
+│   │   ├── TransactionControllerIntegrationTests.cs
+│   │   ├── UserControllerIntegrationTests.cs
+│   │   └── WalletControllerIntegrationTests.cs
 │   ├── UnitTests/                  # Tests unitaires purs (sans infrastructure externe)
-│   │   └── AuthServiceTests.cs     # Validation de signature et claims des tokens
+│   │   ├── AuthServiceTests.cs     # Validation de signature et claims des tokens
+│   │   ├── TransactionServiceTests.cs # Validations, filtres et recalcul des totaux
+│   │   └── WalletServiceTests.cs   # Regles metier portefeuilles
 │   └── backend.Tests.csproj        # Configuration xUnit et dependances de test
 ├── mobile/                         # Application cliente mobile Expo / React Native
 │   ├── .expo/                      # Cache de resolution du compilateur Expo
@@ -134,14 +146,18 @@ expense/
 │   │   │   ├── _layout.tsx         # Layout racine (Fournisseurs de contexte globaux)
 │   │   │   └── index.tsx           # Routeur d'aiguillage initial
 │   │   ├── components/             # Composants d'interface reutilisables
-│   │   ├── constants/              # Constantes d'interface, theme sombre et mocks
+│   │   ├── constants/              # Theme sombre et dictionnaires de categories
 │   │   ├── contexts/               # Contexte React d'authentification et session
 │   │   │   └── authContext.tsx     # Abstraction de session reliee a SecureStore
 │   │   ├── services/               # Couche d'appels API et stockage securise
 │   │   │   ├── api/
 │   │   │   │   ├── apiClient.ts    # Instance Axios, intercepteurs JWT et session glissante
 │   │   │   │   ├── authService.ts  # Appels REST types (login, register, getMe)
+│   │   │   │   ├── transactionService.ts # Appels REST types des transactions (filtres, resume, CRUD)
 │   │   │   │   └── walletService.ts # Appels REST types des portefeuilles (CRUD)
+│   │   │   ├── query/
+│   │   │   │   ├── queryClient.ts  # Configuration du cache TanStack Query
+│   │   │   │   └── queryKeys.ts    # Cles de cache centralisees
 │   │   │   └── storage/
 │   │   │       └── tokenStorage.ts # Abstraction d'acces a Expo SecureStore
 │   │   ├── types.ts                # Definitions des interfaces et types TypeScript
@@ -466,9 +482,10 @@ backend.Tests/
     └── WalletControllerIntegrationTests.cs # Validation du CRUD des portefeuilles (401/201/400/404)
 ```
 
-#### 1. Tests Unitaires (`UnitTests/AuthServiceTests.cs`)
-- Instancient directement `AuthService` en lui injectant une configuration memoire (`AddInMemoryCollection`).
+#### 1. Tests Unitaires (`UnitTests/`)
+- `AuthServiceTests.cs` : instancient directement `AuthService` en lui injectant une configuration memoire (`AddInMemoryCollection`).
 - Valident de maniere isolee que la methode `GenerateJwtToken(user)` produit un jeton valide et que les claims (`name`, `email`, `role`) concordent fidelement avec l'entite sans faire appel au reseau ni a la base de donnees.
+- `TransactionServiceTests.cs` : couvrent les validations (montant, type, date, longueurs), les filtres, l'isolation multi-utilisateurs et le recalcul des agrégats de portefeuille (`Amount`, `TotalIncome`, `TotalExpenses`) apres chaque création, modification ou suppression.
 
 #### 2. Tests d'Integration (`IntegrationTests/`)
 - Exploitent la classe `WebApplicationFactory<Program>` fournie par le paquet `Microsoft.AspNetCore.Mvc.Testing`.
@@ -478,6 +495,7 @@ backend.Tests/
   - Que l'appel a `/api/Auth/login` avec des identifiants errones declenche un code de reponse `401 Unauthorized`.
   - Que les appels a `/api/User` ou `/api/User/admin-only` sans entete Authorization retournent immediatement un code de refus `401 Unauthorized`.
   - Que le CRUD `/api/Wallet` exige un jeton (`401`), accepte un portefeuille valide (`201`), refuse un nom vide (`400`) et isole strictement les portefeuilles entre utilisateurs (`404`).
+  - Que le CRUD `/api/Transaction` exige un jeton (`401`), sérialise `type` sous forme de chaine (`"income"` / `"expense"`), refuse un montant nul (`400`), met a jour les totaux du portefeuille apres chaque ecriture et isole strictement les transactions entre utilisateurs (`404`).
 
 ### 5.2 Execution des Tests
 

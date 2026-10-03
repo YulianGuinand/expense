@@ -63,15 +63,37 @@ export type BackButtonProps = {
 };
 
 export type TransactionType = {
-  id?: string;
+  id?: number;
   type: string;
   amount: number;
-  category?: string;
-  date: Date | string;
-  description?: string;
-  image?: any;
-  uid?: string;
-  walletId: string;
+  category?: string | null;
+  date: string;
+  description?: string | null;
+  walletId: number;
+};
+
+export type CreateTransactionInput = {
+  type: string;
+  amount: number;
+  category?: string | null;
+  date: string;
+  description?: string | null;
+  walletId: number;
+};
+
+export type UpdateTransactionInput = {
+  type: string;
+  amount: number;
+  category?: string | null;
+  date: string;
+  description?: string | null;
+  walletId: number;
+};
+
+export type TransactionSummary = {
+  totalIncome: number;
+  totalExpenses: number;
+  balance: number;
 };
 
 export type CategoryType = {
@@ -89,12 +111,13 @@ export type TransactionListType = {
   title?: string;
   loading?: boolean;
   emptyListMessage?: string;
+  onPress?: (item: TransactionType) => void;
 };
 
 export type TransactionItemProps = {
   item: TransactionType;
   index: number;
-  handleClick: Function;
+  handleClick: (item: TransactionType) => void;
 };
 
 export interface InputProps extends TextInputProps {

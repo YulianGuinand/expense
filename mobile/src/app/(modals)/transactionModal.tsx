@@ -1,83 +1,239 @@
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { Header } from "@/components/Header";
+import { Input } from "@/components/Input";
+import { Loading } from "@/components/Loading";
 import { ModalWrapper } from "@/components/ModalWrapper";
 import { Typo } from "@/components/Typo";
 import {
   expenseCategories,
+  incomeCategories,
   transactionTypes,
-  walletsItem,
 } from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import { TransactionType } from "@/types";
+import { dropdownStyles } from "@/constants/dropdownStyles";
+import { extractApiErrorMessage } from "@/services/api/apiClient";
+import { transactionService } from "@/services/api/transactionService";
+import { walletService } from "@/services/api/walletService";
+import { queryKeys } from "@/services/query/queryKeys";
+import { CreateTransactionInput, TransactionType, WalletType } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
+import DateTimePicker, { DateTimePickerChangeEvent } from "@react-native-community/datetimepicker";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { TrashIcon } from "phosphor-react-native";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 
+const MAX_DESCRIPTION_LENGTH = 200;
+const MAX_AMOUNT_LENGTH = 12;
+
 export default function TransactionModal() {
-  const [value, setValue] = useState(null);
-  const [isFocus, setIsFocus] = useState(false);
+  const params = useLocalSearchParams<{ id?: string }>();
+  const parsedId = Number(params.id);
+  const isEdit = params.id != null && Number.isFinite(parsedId);
 
-  const oldTransaction = useLocalSearchParams<{
-    name?: string;
-    image?: string;
-  }>();
-
-  const [transaction, setTransaction] = useState<TransactionType>({
-    type: "expense",
-    amount: 0,
-    description: "",
-    category: "",
-    date: new Date(),
-    walletId: "",
-    image: null,
+  const { data: wallets = [], isLoading: isLoadingWallets } = useQuery({
+    queryKey: queryKeys.wallets.all,
+    queryFn: () => walletService.getAll(),
   });
 
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const { data: existing, isLoading: isLoadingTransaction } = useQuery({
+    queryKey: queryKeys.transactions.detail(parsedId),
+    queryFn: () => transactionService.getById(parsedId),
+    enabled: isEdit,
+  });
 
-  const onSubmit = async () => {
-    if (!transaction.category) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  if (isLoadingWallets || (isEdit && isLoadingTransaction)) {
+    return (
+      <ModalWrapper>
+        <Loading />
+      </ModalWrapper>
+    );
+  }
+
+  return (
+    <TransactionForm
+      wallets={wallets}
+      existing={isEdit ? existing : undefined}
+      parsedId={parsedId}
+      isEdit={isEdit}
+    />
+  );
+}
+
+type TransactionFormProps = {
+  wallets: WalletType[];
+  existing?: TransactionType;
+  parsedId: number;
+  isEdit: boolean;
+};
+
+function TransactionForm({
+  wallets,
+  existing,
+  parsedId,
+  isEdit,
+}: TransactionFormProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const firstWalletId = wallets.find((wallet) => wallet.id != null)?.id;
+  const [type, setType] = useState(existing?.type ?? "expense");
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : "");
+  const [category, setCategory] = useState(existing?.category ?? "");
+  const [date, setDate] = useState(
+    existing ? new Date(existing.date) : new Date(),
+  );
+  const [description, setDescription] = useState(existing?.description ?? "");
+  const [walletId, setWalletId] = useState<string | null>(
+    existing
+      ? String(existing.walletId)
+      : firstWalletId != null
+        ? String(firstWalletId)
+        : null,
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const invalidateData = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.wallets.all }),
+    ]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (input: CreateTransactionInput) =>
+      isEdit
+        ? transactionService.update(parsedId, input)
+        : transactionService.create(input),
+    onSuccess: async () => {
+      await invalidateData();
       router.back();
-    }, 1500);
+    },
+    onError: (error) => {
+      Alert.alert(
+        "Erreur",
+        extractApiErrorMessage(
+          error,
+          "Impossible d'enregistrer la transaction.",
+        ),
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => transactionService.remove(parsedId),
+    onSuccess: async () => {
+      await invalidateData();
+      router.back();
+    },
+    onError: (error) => {
+      Alert.alert(
+        "Erreur",
+        extractApiErrorMessage(
+          error,
+          "Impossible de supprimer la transaction.",
+        ),
+      );
+    },
+  });
+
+  const loading = saveMutation.isPending || deleteMutation.isPending;
+
+  const categoryOptions = Object.values(
+    type === "income" ? incomeCategories : expenseCategories,
+  ).map((item) => ({
+    label: item.label,
+    value: item.value,
+  }));
+
+  const onTypeChange = (value: string) => {
+    setType(value);
+    const nextCategories =
+      value === "income" ? incomeCategories : expenseCategories;
+    if (!nextCategories[category]) {
+      setCategory("");
+    }
+  };
+
+  const onSubmit = () => {
+    const trimmedDescription = description.trim();
+    const parsedAmount = parseFloat(amount.replace(",", "."));
+
+    if (!walletId) {
+      Alert.alert("Champ requis", "Le portefeuille est requis.");
+      return;
+    }
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert("Montant invalide", "Le montant doit être supérieur à 0.");
+      return;
+    }
+
+    if (!category) {
+      Alert.alert("Champ requis", "La catégorie est requise.");
+      return;
+    }
+
+    if (trimmedDescription.length > MAX_DESCRIPTION_LENGTH) {
+      Alert.alert(
+        "Description trop longue",
+        `La description ne peut pas dépasser ${MAX_DESCRIPTION_LENGTH} caractères.`,
+      );
+      return;
+    }
+
+    saveMutation.mutate({
+      type,
+      amount: parsedAmount,
+      category,
+      date: date.toISOString(),
+      description: trimmedDescription || null,
+      walletId: Number(walletId),
+    });
   };
 
   const showDeleteAlert = () => {
     Alert.alert(
       "Confirmer",
-      "Êtes vous sur de vouloir supprimer ce portefeuile?\nCette action supprimera toutes les transactions liées.",
+      "Êtes-vous sûr de vouloir supprimer cette transaction ?\nCette action est irréversible.",
       [
         { text: "Annuler", style: "cancel" },
         {
           text: "Supprimer",
           style: "destructive",
-          onPress: () => {
-            setLoading(true);
-            setTimeout(() => {
-              setLoading(false);
-              router.back();
-            }, 1500);
-          },
+          onPress: () => deleteMutation.mutate(),
         },
       ],
     );
+  };
+
+  const onValueChange = (event: DateTimePickerChangeEvent) => {
+    const timestamp = event.nativeEvent.timestamp;
+
+    if (timestamp) {
+      setDate(new Date(timestamp));
+    }
+
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
   };
 
   return (
     <ModalWrapper>
       <View style={styles.container}>
         <Header
-          title={
-            oldTransaction.name
-              ? "Modifier la transaction"
-              : "Nouvelle transaction"
-          }
+          title={isEdit ? "Modifier la transaction" : "Nouvelle transaction"}
           leftIcon={<BackButton />}
           style={{ marginBottom: spacingY._10 }}
         />
@@ -89,83 +245,134 @@ export default function TransactionModal() {
           <View style={styles.inputContainer}>
             <Typo color={colors.neutral200}>Type de transaction</Typo>
             <Dropdown
-              style={styles.dropdownContainer}
-              selectedTextStyle={styles.dropdownSelectedText}
-              iconStyle={styles.dropdownIcon}
+              style={dropdownStyles.container}
+              selectedTextStyle={dropdownStyles.selectedText}
+              iconStyle={dropdownStyles.icon}
               activeColor={colors.neutral700}
-              placeholder="Selectionner un type"
-              placeholderStyle={styles.dropdownPlaceholder}
+              placeholder="Sélectionner un type"
+              placeholderStyle={dropdownStyles.placeholder}
               data={transactionTypes}
               maxHeight={300}
               labelField="label"
               valueField="value"
-              value={transaction.type}
-              onChange={(item) => {
-                setTransaction({ ...transaction, type: item.value });
-              }}
-              itemTextStyle={styles.dropdownItemText}
-              itemContainerStyle={styles.dropdownItemContainer}
-              containerStyle={styles.dropdownListContainer}
+              value={type}
+              onChange={(item) => onTypeChange(item.value)}
+              itemTextStyle={dropdownStyles.itemText}
+              itemContainerStyle={dropdownStyles.itemContainer}
+              containerStyle={dropdownStyles.listContainer}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Typo color={colors.neutral200}>Montant</Typo>
+            <Input
+              placeholder="0.00"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="decimal-pad"
+              maxLength={MAX_AMOUNT_LENGTH}
             />
           </View>
 
           <View style={styles.inputContainer}>
             <Typo color={colors.neutral200}>Portefeuille</Typo>
             <Dropdown
-              style={styles.dropdownContainer}
-              selectedTextStyle={styles.dropdownSelectedText}
-              iconStyle={styles.dropdownIcon}
+              style={dropdownStyles.container}
+              selectedTextStyle={dropdownStyles.selectedText}
+              iconStyle={dropdownStyles.icon}
               activeColor={colors.neutral700}
-              placeholder="Selectionner un portefeuille"
-              placeholderStyle={styles.dropdownPlaceholder}
-              data={walletsItem.map((i) => {
-                return {
-                  label: `${i.name} (${i.amount.toFixed(2)}€)`,
-                  value: i.name,
-                };
-              })}
+              placeholder="Sélectionner un portefeuille"
+              placeholderStyle={dropdownStyles.placeholder}
+              data={wallets
+                .filter((wallet) => wallet.id != null)
+                .map((wallet) => ({
+                  label: `${wallet.name} (${(wallet.amount ?? 0).toFixed(2)}€)`,
+                  value: String(wallet.id),
+                }))}
               maxHeight={300}
               labelField="label"
               valueField="value"
-              value={walletsItem[0].name}
-              onChange={(item) => {
-                setTransaction({ ...transaction, walletId: item.value });
-              }}
-              itemTextStyle={styles.dropdownItemText}
-              itemContainerStyle={styles.dropdownItemContainer}
-              containerStyle={styles.dropdownListContainer}
+              value={walletId}
+              onChange={(item) => setWalletId(item.value)}
+              itemTextStyle={dropdownStyles.itemText}
+              itemContainerStyle={dropdownStyles.itemContainer}
+              containerStyle={dropdownStyles.listContainer}
             />
           </View>
 
-          {transaction.type === "expense" && (
-            <View style={styles.inputContainer}>
-              <Typo color={colors.neutral200}>Categorie</Typo>
-              <Dropdown
-                style={styles.dropdownContainer}
-                selectedTextStyle={styles.dropdownSelectedText}
-                iconStyle={styles.dropdownIcon}
-                activeColor={colors.neutral700}
-                placeholder="Selectionner un portefeuille"
-                placeholderStyle={styles.dropdownPlaceholder}
-                data={Object.keys(expenseCategories)}
-                maxHeight={300}
-                labelField="label"
-                valueField="value"
-                value={walletsItem[0].name}
-                onChange={(item) => {
-                  setTransaction({ ...transaction, category: item.value });
-                }}
-                itemTextStyle={styles.dropdownItemText}
-                itemContainerStyle={styles.dropdownItemContainer}
-                containerStyle={styles.dropdownListContainer}
-              />
-            </View>
-          )}
+          <View style={styles.inputContainer}>
+            <Typo color={colors.neutral200}>Catégorie</Typo>
+            <Dropdown
+              style={dropdownStyles.container}
+              selectedTextStyle={dropdownStyles.selectedText}
+              iconStyle={dropdownStyles.icon}
+              activeColor={colors.neutral700}
+              placeholder="Sélectionner une catégorie"
+              placeholderStyle={dropdownStyles.placeholder}
+              data={categoryOptions}
+              maxHeight={300}
+              labelField="label"
+              valueField="value"
+              value={category}
+              onChange={(item) => setCategory(item.value)}
+              itemTextStyle={dropdownStyles.itemText}
+              itemContainerStyle={dropdownStyles.itemContainer}
+              containerStyle={dropdownStyles.listContainer}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Typo color={colors.neutral200}>Date</Typo>
+            <TouchableOpacity
+              style={styles.dateInput}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Typo size={14} color={colors.white}>
+                {date.toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Typo>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <View>
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onValueChange={onValueChange}
+                  maximumDate={new Date()}
+                />
+                {Platform.OS === "ios" && (
+                  <TouchableOpacity
+                    style={styles.datePickerButton}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Typo size={14} color={colors.primary} fontWeight={"600"}>
+                      Terminé
+                    </Typo>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Typo color={colors.neutral200}>Description</Typo>
+            <Input
+              placeholder="Description (optionnel)"
+              value={description}
+              onChangeText={setDescription}
+              maxLength={MAX_DESCRIPTION_LENGTH}
+            />
+          </View>
         </ScrollView>
       </View>
 
       <View style={styles.footer}>
-        {oldTransaction.name && !loading && (
+        {isEdit && !loading && (
           <Button
             onPress={showDeleteAlert}
             style={{
@@ -190,7 +397,7 @@ export default function TransactionModal() {
         >
           <Button onPress={onSubmit} style={{ flex: 1 }} loading={loading}>
             <Typo color={colors.neutral900} fontWeight={"700"}>
-              {oldTransaction.name ? "Modifier" : "Ajouter"} le portefeuille
+              {isEdit ? "Modifier" : "Ajouter"} la transaction
             </Typo>
           </Button>
         </View>
@@ -223,35 +430,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     gap: spacingY._10,
   },
-  iosDropDown: {
-    flexDirection: "row",
-    height: verticalScale(54),
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: verticalScale(14),
-    borderWidth: 1,
-    color: colors.white,
-    borderColor: colors.neutral300,
-    borderRadius: radius._17,
-    borderCurve: "continuous",
-    paddingHorizontal: spacingX._15,
-  },
-  androidDropDown: {
-    height: verticalScale(54),
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    fontSize: verticalScale(14),
-    color: colors.white,
-    borderColor: colors.neutral300,
-    borderRadius: radius._17,
-    borderCurve: "continuous",
-  },
-  flexRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacingX._5,
-  },
   dateInput: {
     flexDirection: "row",
     height: verticalScale(54),
@@ -262,9 +440,6 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     paddingHorizontal: spacingX._15,
   },
-  iosDatePicker: {
-    //
-  },
   datePickerButton: {
     backgroundColor: colors.neutral700,
     alignSelf: "flex-end",
@@ -272,44 +447,5 @@ const styles = StyleSheet.create({
     marginRight: spacingX._7,
     paddingHorizontal: spacingY._7,
     borderRadius: radius._10,
-  },
-  dropdownContainer: {
-    height: verticalScale(54),
-    borderWidth: 1,
-    borderColor: colors.neutral300,
-    paddingHorizontal: spacingX._15,
-    borderRadius: radius._15,
-    borderCurve: "continuous",
-  },
-  dropdownItemText: {
-    color: colors.white,
-  },
-  dropdownSelectedText: {
-    color: colors.white,
-    fontSize: verticalScale(14),
-  },
-  dropdownListContainer: {
-    backgroundColor: colors.neutral900,
-    borderRadius: radius._15,
-    borderCurve: "continuous",
-    paddingVertical: spacingY._7,
-    top: 5,
-    borderColor: colors.neutral500,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 1,
-    shadowRadius: 15,
-    elevation: 5,
-  },
-  dropdownPlaceholder: {
-    color: colors.white,
-  },
-  dropdownItemContainer: {
-    borderRadius: radius._15,
-    marginHorizontal: spacingX._7,
-  },
-  dropdownIcon: {
-    height: verticalScale(30),
-    tintColor: colors.neutral300,
   },
 });

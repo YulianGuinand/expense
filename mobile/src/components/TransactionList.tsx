@@ -1,6 +1,6 @@
 import { expenseCategories, incomeCategories } from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import { TransactionItemProps, TransactionListType } from "@/types";
+import { TransactionItemProps, TransactionListType, TransactionType } from "@/types";
 import { verticalScale } from "@/utils/styling";
 import { FlashList } from "@shopify/flash-list";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -13,8 +13,9 @@ export function TransactionList({
   title,
   loading,
   emptyListMessage,
+  onPress,
 }: TransactionListType) {
-  const handleClick = () => {};
+  const handleClick = (item: TransactionType) => onPress?.(item);
 
   return (
     <View style={styles.container}>
@@ -78,16 +79,13 @@ const TransactionItem = ({
 
   const isExpense = item.type === "expense";
 
-  const formatDate = (dateValue: any) => {
+  const formatDate = (dateValue: TransactionType["date"]) => {
     if (!dateValue) return "";
-    if (typeof dateValue === "string") return dateValue;
 
-    const d =
-      typeof dateValue.toDate === "function"
-        ? dateValue.toDate()
-        : new Date(dateValue);
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return "";
 
-    return d.toLocaleDateString("fr-FR", {
+    return parsed.toLocaleDateString("fr-FR", {
       day: "numeric",
       month: "short",
     });

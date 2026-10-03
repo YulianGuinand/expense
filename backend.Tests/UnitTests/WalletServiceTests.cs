@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.DTOs;
+using backend.Models;
 using backend.Services;
 
 namespace backend.Tests.UnitTests;
@@ -189,5 +190,19 @@ public class WalletServiceTests : IDisposable
         var otherWallets = await _walletService.GetWalletsAsync(OtherUserId);
 
         otherWallets.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DeleteWallet_ShouldRemoveLinkedTransactions()
+    {
+        var created = await _walletService.CreateWalletAsync(UserId, new WalletCreateDto("A supprimer"));
+        var transactionService = new TransactionService(_context);
+        await transactionService.CreateTransactionAsync(
+            UserId,
+            new TransactionCreateDto(TransactionType.Expense, 50f, "food", new DateTime(2026, 6, 3), null, created.Wallet!.Id));
+
+        await _walletService.DeleteWalletAsync(UserId, created.Wallet.Id);
+
+        _context.Transactions.Should().BeEmpty();
     }
 }
