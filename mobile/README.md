@@ -62,7 +62,7 @@ mobile/
 └── src/
     ├── app/                        # Routes Expo Router (default export obligatoire ici)
     │   ├── (auth)/                 # login.tsx, register.tsx, welcome.tsx
-    │   ├── (modals)/               # profileModal.tsx, transactionModal.tsx, walletModal.tsx
+    │   ├── (modals)/               # profileModal.tsx, transactionModal.tsx, transactionSearchModal.tsx, walletModal.tsx
     │   ├── (tabs)/                 # _layout.tsx, index.tsx, profile.tsx, statistics.tsx, wallet.tsx
     │   ├── _layout.tsx             # Configuration globale de navigation et Reanimated logger
     │   └── index.tsx               # Point d'entree d'aiguillage de session
@@ -89,7 +89,7 @@ mobile/
     │   ├── api/
     │   │   ├── apiClient.ts        # Instance Axios, intercepteurs JWT et session glissante
     │   │   ├── authService.ts      # Appels REST typés (login, register, getMe, updateUsername)
-    │   │   ├── transactionService.ts # Appels REST typés des transactions (filtres, stats mensuelles, CRUD)
+    │   │   ├── transactionService.ts # Appels REST typés des transactions (filtres, recherche q, pagination offset, stats mensuelles, CRUD)
     │   │   └── walletService.ts    # Appels REST typés des portefeuilles (liste, création, modification, suppression)
     │   ├── query/
     │   │   ├── queryClient.ts      # Configuration du cache (staleTime, gcTime, politiques de re-tentative)
@@ -116,7 +116,7 @@ mobile/
 4. **Cache des Donnees Serveur (TanStack Query)** :
    - Les donnees serveur sont lues via `useQuery` (cles centrees dans `src/services/query/queryKeys.ts`) et ecrites via `useMutation`.
    - Toute mutation (creation, modification, suppression) appelle `queryClient.invalidateQueries(...)` pour re-actualiser les ecrans actifs.
-   - Les mutations de transaction invalident `["transactions"]` (liste, détail, stats mensuelles) **et** `["wallets"]` (les soldes des portefeuilles sont recalcules cote API).
+   - Les mutations de transaction invalident `["transactions"]` (liste, détail, résultats de recherche, stats mensuelles) **et** `["wallets"]` (les soldes des portefeuilles sont recalcules cote API).
    - Une reponse de moins de 30 secondes est consideree fraiche : retour sur un ecran ou changement d'etat applicatif n'entraune alors aucune requete reseau supplementaire.
    - Le cache est entierement purge (`queryClient.clear()`) a la deconnexion et en cas de reponse 401, pour eviter toute fuite de donnees entre comptes.
 5. **Page Statistiques** :
@@ -125,6 +125,12 @@ mobile/
    - Le selecteur de portefeuille inclut l'entree « Tous les wallets » (valeur `"all"` → `walletId` absent de la requete).
    - L'objectif s'affiche uniquement pour un portefeuille selectionne doté d'un `goal` : progression = `montant/objectif`, revenu % = `totalIncome/objectif`, depense % = `totalExpenses/objectif` — toutes les valeurs proviennent du cache `["wallets"]`, sans appel API supplementaire.
    - L'objectif se modifie dans le formulaire portefeuille (`walletModal`, champ optionnel numerique).
+6. **Modal de Recherche de Transactions** :
+   - `transactionSearchModal.tsx` s'ouvre depuis la loupe de l'accueil (`router.push("/(modals)/transactionSearchModal")`) et s'inscrit dans `_layout.tsx` avec `presentation: "modal"`.
+   - La saisie est debouncée à 300 ms (lodash `debounce`, annulation via `cancel()` au démontage et à l'effacement ; aucun `setState` dans un `useEffect`).
+   - La recherche `q` matche la description, la catégorie, le nom du portefeuille et les alias `income` / `expense` (champ unique, requête `GET /api/Transaction?q=...`).
+   - Pagination infinie via `useInfiniteQuery` (clé `queryKeys.transactions.search(q)`, `PAGE_SIZE = 20`) : chaque page demande `limit = 21` et tronque à 20 entrées, `hasMore` = réponse de 21 entrées, `offset` incrémenté de 20.
+   - Le rendu réutilise `TransactionList` (props optionnelles `onEndReached` / `fetchingMore` / `fill`) ; `fill` active `flexGrow` sur le conteneur pour occuper la hauteur disponible en contexte borné (modal), la chaîne `flex` doit être bornée jusqu'à `ModalWrapper` ; un appui sur une ligne ouvre `transactionModal` avec `params.id` (invalidation `["transactions"]` au retour).
 
 ---
 

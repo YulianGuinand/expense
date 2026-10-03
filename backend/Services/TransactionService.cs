@@ -35,7 +35,9 @@ public class TransactionService
         string? category = null,
         DateTime? from = null,
         DateTime? to = null,
-        int? limit = null)
+        int? limit = null,
+        string? q = null,
+        int? offset = null)
     {
         var query = _context.Transactions
             .AsNoTracking()
@@ -67,11 +69,27 @@ public class TransactionService
             query = query.Where(t => t.Date <= to.Value);
         }
 
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var search = q.Trim().ToLower();
+            TransactionType? typeFromQuery =
+                search.Equals("income") ? TransactionType.Income :
+                search.Equals("expense") ? TransactionType.Expense : null;
+
+            query = query.Where(t =>
+                t.Description.ToLower().Contains(search) ||
+                t.Category.ToLower().Contains(search) ||
+                (t.Wallet != null && t.Wallet.Name.ToLower().Contains(search)) ||
+                (typeFromQuery.HasValue && t.Type == typeFromQuery.Value));
+        }
+
         var take = limit.HasValue ? Math.Clamp(limit.Value, 1, MaxResultLimit) : MaxResultLimit;
+        var skip = offset.HasValue ? Math.Max(0, offset.Value) : 0;
 
         var transactions = await query
             .OrderByDescending(t => t.Date)
             .ThenByDescending(t => t.Id)
+            .Skip(skip)
             .Take(take)
             .ToListAsync();
 

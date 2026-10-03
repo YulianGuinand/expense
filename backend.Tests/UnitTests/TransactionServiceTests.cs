@@ -240,6 +240,123 @@ public class TransactionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetTransactions_WhenSearchMatchesDescription_ShouldBeCaseInsensitive()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 1)));
+        await _transactionService.CreateTransactionAsync(
+            UserId,
+            new TransactionCreateDto(TransactionType.Income, 2200f, "salary", new DateTime(2026, 6, 2), "Salaire", walletId));
+
+        var transactions = await _transactionService.GetTransactionsAsync(UserId, q: "lOYeR");
+
+        transactions.Should().ContainSingle();
+        transactions[0].Description.Should().Be("Loyer appartement");
+    }
+
+    [Fact]
+    public async Task GetTransactions_WhenSearchMatchesCategory_ShouldReturnMatch()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(
+            UserId, ExpenseDto(walletId, category: "food", description: "Courses", date: new DateTime(2026, 6, 1)));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 2)));
+
+        var transactions = await _transactionService.GetTransactionsAsync(UserId, q: "FOOD");
+
+        transactions.Should().ContainSingle();
+        transactions[0].Category.Should().Be("food");
+    }
+
+    [Fact]
+    public async Task GetTransactions_WhenSearchMatchesWalletName_ShouldReturnMatch()
+    {
+        var personnelId = await CreateWalletAsync(UserId);
+        var vacancesId = await CreateWalletAsync(UserId, "Vacances");
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(personnelId, date: new DateTime(2026, 6, 1)));
+        await _transactionService.CreateTransactionAsync(
+            UserId, ExpenseDto(vacancesId, description: "Hotel", date: new DateTime(2026, 6, 2)));
+
+        var transactions = await _transactionService.GetTransactionsAsync(UserId, q: "VACANCES");
+
+        transactions.Should().ContainSingle();
+        transactions[0].WalletId.Should().Be(vacancesId);
+    }
+
+    [Fact]
+    public async Task GetTransactions_WhenSearchMatchesTypeAlias_ShouldReturnOnlyThatType()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 1)));
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 1000f, "gift", new DateTime(2026, 6, 2), "Cadeau", walletId));
+
+        var incomes = await _transactionService.GetTransactionsAsync(UserId, q: "income");
+        var expenses = await _transactionService.GetTransactionsAsync(UserId, q: "expense");
+
+        incomes.Should().ContainSingle().Which.Type.Should().Be(TransactionType.Income);
+        expenses.Should().ContainSingle().Which.Type.Should().Be(TransactionType.Expense);
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithOffset_ShouldSkipFirstResults()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 15)));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 8)));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 1)));
+
+        var firstPage = await _transactionService.GetTransactionsAsync(UserId, limit: 2, offset: 0);
+        var secondPage = await _transactionService.GetTransactionsAsync(UserId, limit: 2, offset: 2);
+
+        firstPage.Should().HaveCount(2);
+        firstPage[0].Date.Should().Be(new DateTime(2026, 6, 15));
+        secondPage.Should().ContainSingle();
+        secondPage[0].Date.Should().Be(new DateTime(2026, 6, 1));
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithNegativeOffset_ShouldClampToZero()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 15)));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 8)));
+
+        var transactions = await _transactionService.GetTransactionsAsync(UserId, offset: -5);
+
+        transactions.Should().HaveCount(2);
+        transactions[0].Date.Should().Be(new DateTime(2026, 6, 15));
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithSearchAndOffset_ShouldCombine()
+    {
+        var walletId = await CreateWalletAsync(UserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 3)));
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(walletId, date: new DateTime(2026, 6, 2)));
+        await _transactionService.CreateTransactionAsync(
+            UserId, new TransactionCreateDto(TransactionType.Income, 500f, "gift", new DateTime(2026, 6, 1), "Cadeau", walletId));
+
+        var page = await _transactionService.GetTransactionsAsync(UserId, limit: 1, offset: 1, q: "loyer");
+
+        page.Should().ContainSingle();
+        page[0].Date.Should().Be(new DateTime(2026, 6, 2));
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithSearch_ShouldOnlyReturnCurrentUserTransactions()
+    {
+        var ownWalletId = await CreateWalletAsync(UserId);
+        var foreignWalletId = await CreateWalletAsync(OtherUserId);
+        await _transactionService.CreateTransactionAsync(UserId, ExpenseDto(ownWalletId));
+        await _transactionService.CreateTransactionAsync(OtherUserId, ExpenseDto(foreignWalletId));
+
+        var transactions = await _transactionService.GetTransactionsAsync(UserId, q: "loyer");
+
+        transactions.Should().ContainSingle().Which.WalletId.Should().Be(ownWalletId);
+    }
+
+    [Fact]
     public async Task GetTransaction_BelongingToAnotherUser_ShouldReturnNotFound()
     {
         var foreignWalletId = await CreateWalletAsync(OtherUserId);

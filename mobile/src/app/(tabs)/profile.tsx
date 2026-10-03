@@ -9,10 +9,8 @@ import { verticalScale } from "@/utils/styling";
 import { useRouter } from "expo-router";
 import {
   CaretRightIcon,
-  GearIcon,
-  LockIcon,
   PowerIcon,
-  UserIcon,
+  UserIcon
 } from "phosphor-react-native";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -23,16 +21,16 @@ const accountOptions: accountOptionType[] = [
     bgColor: "#6366f1",
     routeName: "/(modals)/profileModal",
   },
-  {
-    title: "Paramêtres",
-    icon: <GearIcon size={26} color={colors.white} />,
-    bgColor: "#059669",
-  },
-  {
-    title: "Politique de confidentialité",
-    icon: <LockIcon size={26} color={colors.white} />,
-    bgColor: colors.neutral600,
-  },
+  // {
+  //   title: "Paramêtres",
+  //   icon: <GearIcon size={26} color={colors.white} />,
+  //   bgColor: "#059669",
+  // },
+  // {
+  //   title: "Politique de confidentialité",
+  //   icon: <LockIcon size={26} color={colors.white} />,
+  //   bgColor: colors.neutral600,
+  // },
   {
     title: "Se deconnecter",
     icon: <PowerIcon size={26} color={colors.white} />,

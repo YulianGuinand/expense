@@ -74,7 +74,10 @@ export default function Home() {
             </Typo>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <TouchableOpacity style={styles.searchItem}>
+            <TouchableOpacity
+              style={styles.searchItem}
+              onPress={() => router.push("/(modals)/transactionSearchModal")}
+            >
               <MagnifyingGlassIcon
                 size={verticalScale(22)}
                 color={colors.neutral200}

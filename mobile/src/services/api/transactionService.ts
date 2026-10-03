@@ -13,6 +13,8 @@ export type TransactionFilters = {
   from?: string;
   to?: string;
   limit?: number;
+  q?: string;
+  offset?: number;
 };
 
 export type MonthlyStatsFilters = {

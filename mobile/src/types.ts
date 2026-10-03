@@ -129,6 +129,9 @@ export type TransactionListType = {
   loading?: boolean;
   emptyListMessage?: string;
   onPress?: (item: TransactionType) => void;
+  onEndReached?: () => void;
+  fetchingMore?: boolean;
+  fill?: boolean;
 };
 
 export type TransactionItemProps = {

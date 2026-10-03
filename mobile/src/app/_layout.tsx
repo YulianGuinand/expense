@@ -43,6 +43,13 @@ function StackLayout() {
           contentStyle: { backgroundColor: colors.neutral900 },
         }}
       />
+      <Stack.Screen
+        name="(modals)/transactionSearchModal"
+        options={{
+          presentation: "modal",
+          contentStyle: { backgroundColor: colors.neutral900 },
+        }}
+      />
     </Stack>
   );
 }

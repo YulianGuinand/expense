@@ -26,7 +26,9 @@ public class TransactionController : ControllerBase
         [FromQuery] string? category,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
-        [FromQuery] int? limit)
+        [FromQuery] int? limit,
+        [FromQuery] string? q,
+        [FromQuery] int? offset)
     {
         var userId = GetCurrentUserId();
         if (userId == null)
@@ -35,7 +37,7 @@ public class TransactionController : ControllerBase
         }
 
         var transactions = await _transactionService.GetTransactionsAsync(
-            userId.Value, walletId, type, category, from, to, limit);
+            userId.Value, walletId, type, category, from, to, limit, q, offset);
 
         return Ok(transactions);
     }

@@ -14,18 +14,23 @@ export function TransactionList({
   loading,
   emptyListMessage,
   onPress,
+  onEndReached,
+  fetchingMore,
+  fill,
 }: TransactionListType) {
   const handleClick = (item: TransactionType) => onPress?.(item);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, fill && styles.containerFill]}>
       {title && (
         <Typo size={20} fontWeight={"500"}>
           {title}
         </Typo>
       )}
 
-      <View style={styles.list}>
+      <View
+        style={[styles.list, data.length > 0 && styles.listGrow]}
+      >
         <FlashList
           data={data}
           renderItem={({ item, index }) => (
@@ -35,6 +40,16 @@ export function TransactionList({
               handleClick={handleClick}
             />
           )}
+          showsVerticalScrollIndicator={false}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            fetchingMore ? (
+              <View style={styles.footer}>
+                <Loading />
+              </View>
+            ) : null
+          }
         />
       </View>
       {!loading && data.length === 0 && (
@@ -48,7 +63,7 @@ export function TransactionList({
       )}
 
       {loading && (
-        <View style={{ top: verticalScale(100) }}>
+        <View style={styles.loading}>
           <Loading />
         </View>
       )}
@@ -146,8 +161,27 @@ const styles = StyleSheet.create({
   container: {
     gap: spacingY._17,
   },
+  containerFill: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
   list: {
     minHeight: 3,
+  },
+  listGrow: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  loading: {
+    position: "absolute",
+    top: verticalScale(100),
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  footer: {
+    paddingVertical: spacingY._10,
+    alignItems: "center",
   },
   row: {
     flexDirection: "row",

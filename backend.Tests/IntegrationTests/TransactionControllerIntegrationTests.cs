@@ -195,6 +195,74 @@ public class TransactionControllerIntegrationTests : IClassFixture<ExpenseApiFac
     }
 
     [Fact]
+    public async Task GetAll_WithSearchQuery_ShouldReturnMatchingTransactions()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var wallet = await GetDefaultWalletAsync(client);
+
+        await client.PostAsJsonAsync(
+            "/api/Transaction",
+            new TransactionCreateDto(TransactionType.Income, 2200f, "salary", new DateTime(2026, 6, 1), "Salaire", wallet.Id),
+            JsonOptions);
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(wallet.Id, date: new DateTime(2026, 6, 2)), JsonOptions);
+
+        var search = await client.GetFromJsonAsync<List<TransactionResponseDto>>(
+            "/api/Transaction?q=LOyer", JsonOptions);
+
+        search.Should().ContainSingle();
+        search![0].Description.Should().Be("Loyer appartement");
+    }
+
+    [Fact]
+    public async Task GetAll_WithOffset_ShouldReturnNextPage_WithoutOverlap()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var wallet = await GetDefaultWalletAsync(client);
+
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(wallet.Id, date: new DateTime(2026, 6, 3)), JsonOptions);
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(wallet.Id, amount: 100f, date: new DateTime(2026, 6, 2)), JsonOptions);
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(wallet.Id, amount: 50f, date: new DateTime(2026, 6, 1)), JsonOptions);
+
+        var firstPage = await client.GetFromJsonAsync<List<TransactionResponseDto>>(
+            "/api/Transaction?limit=2&offset=0", JsonOptions);
+        var secondPage = await client.GetFromJsonAsync<List<TransactionResponseDto>>(
+            "/api/Transaction?limit=2&offset=2", JsonOptions);
+
+        firstPage.Should().HaveCount(2);
+        firstPage![0].Date.Should().Be(new DateTime(2026, 6, 3));
+        firstPage[1].Date.Should().Be(new DateTime(2026, 6, 2));
+        secondPage.Should().ContainSingle();
+        secondPage![0].Date.Should().Be(new DateTime(2026, 6, 1));
+        firstPage.Select(t => t.Id).Should().NotIntersectWith(secondPage.Select(t => t.Id));
+    }
+
+    [Fact]
+    public async Task GetAll_WithTypeAliasQuery_ShouldMatchType()
+    {
+        var client = await _factory.CreateAuthenticatedClientAsync();
+        var wallet = await GetDefaultWalletAsync(client);
+
+        await client.PostAsJsonAsync(
+            "/api/Transaction",
+            new TransactionCreateDto(TransactionType.Income, 1000f, "gift", new DateTime(2026, 6, 1), "Cadeau", wallet.Id),
+            JsonOptions);
+        await client.PostAsJsonAsync(
+            "/api/Transaction", NewExpenseDto(wallet.Id, date: new DateTime(2026, 6, 2)), JsonOptions);
+
+        var incomes = await client.GetFromJsonAsync<List<TransactionResponseDto>>(
+            "/api/Transaction?q=income", JsonOptions);
+        var expenses = await client.GetFromJsonAsync<List<TransactionResponseDto>>(
+            "/api/Transaction?q=expense", JsonOptions);
+
+        incomes.Should().ContainSingle().Which.Type.Should().Be(TransactionType.Income);
+        expenses.Should().ContainSingle().Which.Type.Should().Be(TransactionType.Expense);
+    }
+
+    [Fact]
     public async Task Summary_ShouldAggregateIncomeAndExpenses()
     {
         var client = await _factory.CreateAuthenticatedClientAsync();

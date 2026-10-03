@@ -137,6 +137,7 @@ expense/
 │   │   │   ├── (modals)/           # Ecrans modaux de superposition
 │   │   │   │   ├── profileModal.tsx
 │   │   │   │   ├── transactionModal.tsx
+│   │   │   │   ├── transactionSearchModal.tsx
 │   │   │   │   └── walletModal.tsx
 │   │   │   ├── (tabs)/             # Navigation principale a onglets inferieurs
 │   │   │   │   ├── _layout.tsx     # Barre de navigation inferieure
@@ -154,7 +155,7 @@ expense/
 │   │   │   ├── api/
 │   │   │   │   ├── apiClient.ts    # Instance Axios, intercepteurs JWT et session glissante
 │   │   │   │   ├── authService.ts  # Appels REST types (login, register, getMe)
-│   │   │   │   ├── transactionService.ts # Appels REST types des transactions (filtres, stats mensuelles, CRUD)
+│   │   │   │   ├── transactionService.ts # Appels REST types des transactions (filtres, recherche, pagination, stats mensuelles, CRUD)
 │   │   │   │   └── walletService.ts # Appels REST types des portefeuilles (CRUD)
 │   │   │   ├── query/
 │   │   │   │   ├── queryClient.ts  # Configuration du cache TanStack Query
@@ -231,7 +232,7 @@ L'application exploite l'architecture moderne d'Expo Router basee sur la topolog
 - **Ecrans Proteges** : La navigation est synchronisee avec l'etat de session (`user`, `token`). Le point d'entree `index.tsx` redirige automatiquement les utilisateurs non authentifies vers `(auth)/welcome` et les utilisateurs connectes vers `(tabs)`.
 
 #### Performance et Confort Visuel
-- **FlashList (@shopify/flash-list)** : Utilise pour le rendu des transactions dans `TransactionList.tsx`. FlashList recycle les vues d'elements existantes au lieu de detruire et recreer les composants lors du defilement, assurant un maintien strict du taux de 60 ou 120 images par seconde, meme sur de longues listes de depenses.
+- **FlashList (@shopify/flash-list)** : Utilise pour le rendu des transactions dans `TransactionList.tsx`. FlashList recycle les vues d'elements existantes au lieu de detruire et recreer les composants lors du defilement, assurant un maintien strict du taux de 60 ou 120 images par seconde, meme sur de longues listes de depenses. Le composant gere egalement l'infinite scroll du modal de recherche (`onEndReached` / `fetchingMore`), chaque page demandant `limit = PAGE_SIZE + 1` (21) pour deduire `hasMore` sans enveloppe de reponse.
 - **Reanimated (v4)** : Gere les micro-interactions et transitions complexes sans bloquer le moteur JavaScript grace au traitement asynchrone par `Worklets` sur le thread natif.
 - **Design System Adaptatif** : Les utilitaires `src/utils/styling.ts` calculent dynamiquement la taille des typographies et espacements en fonction de la hauteur et de la largeur physique de l'ecran cible (`verticalScale`, `scale`).
 
@@ -484,7 +485,7 @@ backend.Tests/
     ├── ExpenseApiFactory.cs            # Fabrique hermétique (EF Core InMemory, sans MySQL)
     ├── TestAuthHelper.cs               # Inscription et creation de clients HttpClient authentifiés
     ├── AuthControllerIntegrationTests.cs   # Validation du rejet en cas d'identifiants invalides
-    ├── TransactionControllerIntegrationTests.cs # Validation des transactions et de l'endpoint monthly (401/200/404)
+    ├── TransactionControllerIntegrationTests.cs # Validation des transactions, de la recherche q/offset et de l'endpoint monthly (401/200/404)
     ├── UserControllerIntegrationTests.cs   # Validation du statut 401 sur routes protegees
     └── WalletControllerIntegrationTests.cs # Validation du CRUD des portefeuilles et de l'objectif (401/201/400/404)
 ```
@@ -492,7 +493,7 @@ backend.Tests/
 #### 1. Tests Unitaires (`UnitTests/`)
 - `AuthServiceTests.cs` : instancient directement `AuthService` en lui injectant une configuration memoire (`AddInMemoryCollection`).
 - Valident de maniere isolee que la methode `GenerateJwtToken(user)` produit un jeton valide et que les claims (`name`, `email`, `role`) concordent fidelement avec l'entite sans faire appel au reseau ni a la base de donnees.
-- `TransactionServiceTests.cs` : couvrent les validations (montant, type, date, longueurs), les filtres, l'isolation multi-utilisateurs, le recalcul des agrégats de portefeuille (`Amount`, `TotalIncome`, `TotalExpenses`) apres chaque création, modification ou suppression, ainsi que les stats mensuelles (`GetMonthlyStatsAsync` : groupement par mois, remplissage des mois vides, clamp de `months`, exclusion des dates hors fenetre).
+- `TransactionServiceTests.cs` : couvrent les validations (montant, type, date, longueurs), les filtres, la recherche `q` (description, catégorie, nom du portefeuille, alias de type, casse insensible), la pagination `offset` (saut des résultats, clamp des valeurs négatives, combinaison avec `q`), l'isolation multi-utilisateurs, le recalcul des agrégats de portefeuille (`Amount`, `TotalIncome`, `TotalExpenses`) apres chaque création, modification ou suppression, ainsi que les stats mensuelles (`GetMonthlyStatsAsync` : groupement par mois, remplissage des mois vides, clamp de `months`, exclusion des dates hors fenetre).
 - `WalletServiceTests.cs` : couvrent le CRUD, l'isolation par utilisateur, la suppression en cascade des transactions et l'objectif optionnel (`Goal` : création, mise a jour, effacement, rejet si `<= 0`).
 
 #### 2. Tests d'Integration (`IntegrationTests/`)
@@ -504,6 +505,7 @@ backend.Tests/
   - Que les appels a `/api/User` ou `/api/User/admin-only` sans entete Authorization retournent immediatement un code de refus `401 Unauthorized`.
   - Que le CRUD `/api/Wallet` exige un jeton (`401`), accepte un portefeuille valide (`201`), refuse un nom vide (`400`), valide l'objectif (`"L'objectif doit être supérieur à 0."` en `400`) et isole strictement les portefeuilles entre utilisateurs (`404`).
   - Que le CRUD `/api/Transaction` exige un jeton (`401`), sérialise `type` sous forme de chaine (`"income"` / `"expense"`), refuse un montant nul (`400`), met a jour les totaux du portefeuille apres chaque ecriture et isole strictement les transactions entre utilisateurs (`404`).
+  - Que `GET /api/Transaction?q=` filtre par description, catégorie, nom de portefeuille ou alias de type (casse insensible) et que `?offset=` renvoie la page suivante sans chevauchement avec la premiere.
   - Que `GET /api/Transaction/monthly` exige un jeton (`401`), renvoie des buckets `period`/`income`/`expenses` zero-fillés, respecte `walletId` et `months` et n'agrege que les transactions de l'utilisateur connecte.
 
 ### 5.2 Execution des Tests

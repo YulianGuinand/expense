@@ -8,5 +8,6 @@ export const queryKeys = {
     detail: (id: number) => ["transactions", id] as const,
     monthly: (walletId: number | null, months: number) =>
       ["transactions", "monthly", walletId ?? "all", months] as const,
+    search: (q: string) => ["transactions", "search", q] as const,
   },
 };
