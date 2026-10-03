@@ -1,13 +1,13 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
+using backend.Tests.IntegrationTests;
 using FluentAssertions;
 using Xunit;
 
-public class UserControllerIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class UserControllerIntegrationTests : IClassFixture<ExpenseApiFactory>
 {
     private readonly HttpClient _client;
 
-    public UserControllerIntegrationTests(WebApplicationFactory<Program> factory)
+    public UserControllerIntegrationTests(ExpenseApiFactory factory)
     {
         _client = factory.CreateClient();
     }

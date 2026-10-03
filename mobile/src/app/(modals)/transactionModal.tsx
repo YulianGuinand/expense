@@ -3,7 +3,11 @@ import { Button } from "@/components/Button";
 import { Header } from "@/components/Header";
 import { ModalWrapper } from "@/components/ModalWrapper";
 import { Typo } from "@/components/Typo";
-import { expenseCategories, transactionTypes } from "@/constants/data";
+import {
+  expenseCategories,
+  transactionTypes,
+  walletsItem,
+} from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { TransactionType } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
@@ -12,7 +16,6 @@ import { TrashIcon } from "phosphor-react-native";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-import { walletsItem } from "../(tabs)/wallet";
 
 export default function TransactionModal() {
   const [value, setValue] = useState(null);

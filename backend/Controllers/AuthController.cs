@@ -42,6 +42,11 @@ public class AuthController : ControllerBase
         };
 
         _context.Users.Add(user);
+        _context.Wallets.Add(new Wallet
+        {
+            User = user,
+            Name = WalletService.DefaultWalletName
+        });
         _context.SaveChanges();
 
         var token = _authService.GenerateJwtToken(user);

@@ -15,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<WalletService>();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

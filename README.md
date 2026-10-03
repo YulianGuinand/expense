@@ -76,22 +76,28 @@ expense/
 ├── .gitignore                      # Exclusions Git globales (.NET, Node, Expo, IDEs)
 ├── backend/                        # API Web ASP.NET Core 9
 │   ├── Controllers/                # Points d'entree HTTP REST
-│   │   ├── AuthController.cs       # Endpoints register et login
-│   │   └── UserController.cs       # Endpoints utilisateurs proteges et admin
+│   │   ├── AuthController.cs       # Endpoints register (wallet par defaut "01. Personnel") et login
+│   │   ├── UserController.cs       # Endpoints utilisateurs proteges et admin
+│   │   └── WalletController.cs     # Endpoints CRUD des portefeuilles (proteges JWT)
 │   ├── Data/                       # Couche d'acces aux donnees
 │   │   └── AppDbContext.cs         # Contexte EF Core et declaration des DbSets
 │   ├── DTOs/                       # Objets de transfert de donnees immuables
-│   │   └── UserDto.cs              # Records C# UserRegisterDto et UserLoginDto
+│   │   ├── UserDto.cs              # Records C# UserRegisterDto et UserLoginDto
+│   │   └── WalletDto.cs            # Records C# WalletCreateDto, WalletUpdateDto, WalletResponseDto
 │   ├── Migrations/                 # Historique des migrations relationnelles EF Core
 │   │   ├── 20261001183053_InitialCreate.cs
 │   │   ├── 20261001183408_AddRoleToUser.cs
+│   │   ├── 20261002213657_AddWallet.cs
+│   │   ├── 20261002220728_AddWalletUserId.cs
 │   │   └── AppDbContextModelSnapshot.cs
 │   ├── Models/                     # Modeles de domaine / Entites de base de donnees
-│   │   └── User.cs                 # Entite User (Id, Username, Email, PasswordHash, Role)
+│   │   ├── User.cs                 # Entite User (Id, Username, Email, PasswordHash, Role)
+│   │   └── Wallet.cs               # Entite Wallet (Id, UserId, Name, Amount, TotalIncome, TotalExpenses)
 │   ├── Properties/
 │   │   └── launchSettings.json     # Profils de lancement HTTP (5256) et HTTPS (7231)
 │   ├── Services/                   # Logique metier et cryptographie applicative
-│   │   └── AuthService.cs          # Fabrication des jetons JWT et claims
+│   │   ├── AuthService.cs          # Fabrication des jetons JWT et claims
+│   │   └── WalletService.cs        # Regles metier portefeuilles (validation, isolation par utilisateur)
 │   ├── appsettings.json            # Configuration active locale (BDD, JWT)
 │   ├── appsettings.json.example    # Gabarit de configuration distribue sur Git
 │   ├── backend.csproj              # Definition du projet .NET et paquets NuGet
@@ -131,6 +137,13 @@ expense/
 │   │   ├── constants/              # Constantes d'interface, theme sombre et mocks
 │   │   ├── contexts/               # Contexte React d'authentification et session
 │   │   │   └── authContext.tsx     # Abstraction de session reliee a SecureStore
+│   │   ├── services/               # Couche d'appels API et stockage securise
+│   │   │   ├── api/
+│   │   │   │   ├── apiClient.ts    # Instance Axios, intercepteurs JWT et session glissante
+│   │   │   │   ├── authService.ts  # Appels REST types (login, register, getMe)
+│   │   │   │   └── walletService.ts # Appels REST types des portefeuilles (CRUD)
+│   │   │   └── storage/
+│   │   │       └── tokenStorage.ts # Abstraction d'acces a Expo SecureStore
 │   │   ├── types.ts                # Definitions des interfaces et types TypeScript
 │   │   └── utils/                  # Fonctions utilitaires de mise a l'echelle ecran
 │   └── tsconfig.json               # Options du compilateur TypeScript pour Expo
@@ -443,10 +456,14 @@ Le projet **backend.Tests** garantit la fiabilite de la couche serveur via deux 
 ```text
 backend.Tests/
 ├── UnitTests/
-│   └── AuthServiceTests.cs             # Test de generation unitaire du token JWT
+│   ├── AuthServiceTests.cs             # Test de generation unitaire du token JWT
+│   └── WalletServiceTests.cs           # Tests unitaires de la logique metier des portefeuilles
 └── IntegrationTests/
+    ├── ExpenseApiFactory.cs            # Fabrique hermétique (EF Core InMemory, sans MySQL)
+    ├── TestAuthHelper.cs               # Inscription et creation de clients HttpClient authentifiés
     ├── AuthControllerIntegrationTests.cs   # Validation du rejet en cas d'identifiants invalides
-    └── UserControllerIntegrationTests.cs   # Validation du statut 401 sur routes protegees
+    ├── UserControllerIntegrationTests.cs   # Validation du statut 401 sur routes protegees
+    └── WalletControllerIntegrationTests.cs # Validation du CRUD des portefeuilles (401/201/400/404)
 ```
 
 #### 1. Tests Unitaires (`UnitTests/AuthServiceTests.cs`)
@@ -456,9 +473,11 @@ backend.Tests/
 #### 2. Tests d'Integration (`IntegrationTests/`)
 - Exploitent la classe `WebApplicationFactory<Program>` fournie par le paquet `Microsoft.AspNetCore.Mvc.Testing`.
 - Cette fabrique demarre reellement l'hote Web en memoire avec tous ses middlewares (routage, authentification, injection de dependances).
+- La concretion `ExpenseApiFactory` remplace le fournisseur MySQL par le fournisseur **EF Core InMemory** : la suite est hermétique et ne requiert aucun serveur de base de donnees.
 - Un client HTTP virtuel (`HttpClient`) soumet des requetes REELLES vers les controleurs et valide :
   - Que l'appel a `/api/Auth/login` avec des identifiants errones declenche un code de reponse `401 Unauthorized`.
   - Que les appels a `/api/User` ou `/api/User/admin-only` sans entete Authorization retournent immediatement un code de refus `401 Unauthorized`.
+  - Que le CRUD `/api/Wallet` exige un jeton (`401`), accepte un portefeuille valide (`201`), refuse un nom vide (`400`) et isole strictement les portefeuilles entre utilisateurs (`404`).
 
 ### 5.2 Execution des Tests
 

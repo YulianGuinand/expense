@@ -97,10 +97,17 @@ Une fois l'application lancée, l'URL du serveur s'affichera dans le terminal (p
 
 - **Interface Swagger (UI) :** `http://localhost:<votre-port>/swagger`
 - **Endpoints principaux :**
-- `POST /api/Auth/register` : Inscription d'un nouvel utilisateur.
+- `POST /api/Auth/register` : Inscription d'un nouvel utilisateur (crée automatiquement son portefeuille `01. Personnel`).
 - `POST /api/Auth/login` : Connexion (génération du token JWT).
 - `GET /api/User` : Récupération de la liste des utilisateurs (Protégé par JWT).
 - `GET /api/User/admin-only` : Espace restreint aux administrateurs (Rôle `Admin`).
+- `GET /api/Wallet` : Liste des portefeuilles de l'utilisateur connecté (Protégé par JWT).
+- `GET /api/Wallet/{id}` : Détail d'un portefeuille (Protégé par JWT).
+- `POST /api/Wallet` : Création d'un portefeuille (201 Created, Protégé par JWT).
+- `PUT /api/Wallet/{id}` : Renommage d'un portefeuille (Protégé par JWT).
+- `DELETE /api/Wallet/{id}` : Suppression d'un portefeuille (Protégé par JWT).
+
+Tous les endpoints `Wallet` sont isolés par utilisateur : un portefeuille appartenant à un autre compte renvoie `404 Not Found`.
 
 ---
 
@@ -108,11 +115,11 @@ Une fois l'application lancée, l'URL du serveur s'affichera dans le terminal (p
 
 ```text
 backend/
-├── Controllers/         # Contrôleurs API (AuthController, UserController, etc.)
+├── Controllers/         # Contrôleurs API (AuthController, UserController, WalletController)
 ├── Data/                # Contexte de base de données (AppDbContext)
-├── DTOs/                # Objets de transfert de données (Data Transfer Objects)
-├── Models/              # Entités de la base de données (User, etc.)
-├── Services/            # Logique métier (AuthService pour le JWT)
+├── DTOs/                # Objets de transfert de données (UserDto, WalletDto)
+├── Models/              # Entités de la base de données (User, Wallet, etc.)
+├── Services/            # Logique métier (AuthService pour le JWT, WalletService pour les portefeuilles)
 ├── Migrations/          # Fichiers de migration Entity Framework Core
 ├── Properties/          # Paramètres de lancement (launchSettings.json)
 ├── Program.cs           # Point d'entrée et configuration des services / middleware

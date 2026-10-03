@@ -16,6 +16,24 @@ Le projet de test est organisé de la manière suivante :
 - **`UnitTests/`** : Tests isolés pour valider la logique métier (services, validateurs, etc.) sans dépendance externe lourde.
 - **`IntegrationTests/`** : Tests fonctionnels de bout en bout utilisant `WebApplicationFactory` pour simuler le comportement de l'API (appels HTTP, contrôleurs, base de données).
 
+```text
+backend.Tests/
+├── UnitTests/
+│   ├── AuthServiceTests.cs               # Génération du jeton JWT et claims
+│   └── WalletServiceTests.cs             # Logique métier des portefeuilles (validation, isolation par utilisateur)
+├── IntegrationTests/
+│   ├── ExpenseApiFactory.cs              # Fabrique hermétique : remplace MySQL par EF Core InMemory
+│   ├── TestAuthHelper.cs                 # Inscription + création de client HttpClient authentifié
+│   ├── AuthControllerIntegrationTests.cs # Rejet des identifiants invalides (401) et champs manquants (400)
+│   ├── UserControllerIntegrationTests.cs # Statut 401 sur les routes protégées
+│   └── WalletControllerIntegrationTests.cs # CRUD complet des portefeuilles (401, 201, 400, 404)
+└── backend.Tests.csproj
+```
+
+### Base de données des tests
+
+`ExpenseApiFactory` dérive de `WebApplicationFactory<Program>` et remplace le fournisseur MySQL par le fournisseur **EF Core InMemory**. La suite de tests est donc **hermétique** : aucun serveur MySQL ni aucune base de données ne sont nécessaires pour exécuter `dotnet test`.
+
 ---
 
 ## Lancer les tests

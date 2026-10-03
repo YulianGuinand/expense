@@ -1,15 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using FluentAssertions;
 using Xunit;
 using backend.DTOs;
+using backend.Services;
+using backend.Tests.IntegrationTests;
 
-public class AuthControllerIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class AuthControllerIntegrationTests : IClassFixture<ExpenseApiFactory>
 {
     private readonly HttpClient _client;
 
-    public AuthControllerIntegrationTests(WebApplicationFactory<Program> factory)
+    public AuthControllerIntegrationTests(ExpenseApiFactory factory)
     {
         _client = factory.CreateClient();
     }
@@ -32,5 +33,26 @@ public class AuthControllerIntegrationTests : IClassFixture<WebApplicationFactor
         var response = await _client.PostAsJsonAsync("/api/Auth/register", registerDto);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_WithValidData_ShouldCreateDefaultWallet()
+    {
+        var authResponse = await TestAuthHelper.RegisterAsync(
+            _client,
+            "NouveauUtilisateur",
+            TestAuthHelper.GenerateUniqueEmail());
+
+        _client.SetBearerToken(authResponse.Token);
+
+        var wallets = await _client.GetFromJsonAsync<List<WalletResponseDto>>("/api/Wallet");
+
+        wallets.Should().NotBeNull();
+        wallets.Should().ContainSingle();
+        wallets![0].Id.Should().BeGreaterThan(0);
+        wallets[0].Name.Should().Be(WalletService.DefaultWalletName);
+        wallets[0].Amount.Should().Be(0);
+        wallets[0].TotalIncome.Should().Be(0);
+        wallets[0].TotalExpenses.Should().Be(0);
     }
 }

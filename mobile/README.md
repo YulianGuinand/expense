@@ -11,6 +11,7 @@ Ce document decrit l'architecture technique, les regles de developpement et la p
 - **Langage** : TypeScript 6.0.3 (typage statique strict)
 - **Routage** : Expo Router v4 (~57.0.24, navigation basee sur l'arborescence de fichiers)
 - **Client HTTP** : Axios (^1.20.0) avec intercepteurs de securite et session glissante
+- **Cache Serveur** : TanStack Query (@tanstack/react-query, v5) — reponses gardees en memoire (staleTime 30s), re-actualisation en tache de fond, invalidation par cle apres chaque mutation
 - **Stockage Securise** : Expo Secure Store (~57.0.4, Keychain iOS / Keystore Android)
 - **Avatar System** : Blobatar (@blobatar/react-native 2.7.0, avatars geometriques deterministes)
 - **Performances Listes** : @shopify/flash-list (2.0.2)
@@ -76,11 +77,18 @@ mobile/
     │   └── Typo.tsx
     ├── constants/                  # Constantes graphiques, couleurs et donnees de test
     ├── contexts/
-    │   └── authContext.tsx         # Gestion d'etat d'authentification et session utilisateur
+    │   ├── authContext.tsx         # Gestion d'etat d'authentification et session utilisateur
+    │   └── queryContext.tsx        # QueryClientProvider TanStack Query + focus AppState
+    ├── hooks/
+    │   └── useRefreshOnFocus.ts    # Re-actualise les requetes perimees au retour sur l'ecran
     ├── services/
     │   ├── api/
     │   │   ├── apiClient.ts        # Instance Axios, intercepteurs JWT et session glissante
-    │   │   └── authService.ts      # Appels REST typés (login, register, getMe, updateUsername)
+    │   │   ├── authService.ts      # Appels REST typés (login, register, getMe, updateUsername)
+    │   │   └── walletService.ts    # Appels REST typés des portefeuilles (liste, création, modification, suppression)
+    │   ├── query/
+    │   │   ├── queryClient.ts      # Configuration du cache (staleTime, gcTime, politiques de re-tentative)
+    │   │   └── queryKeys.ts        # Cles de cache centralisees (invalidation ciblee)
     │   └── storage/
     │       └── tokenStorage.ts     # Abstraction d'acces a Expo SecureStore
     ├── types.ts                    # Definitions des types transverses
@@ -100,6 +108,11 @@ mobile/
    - En cas de statut 401 Unauthorized, la session locale est automatiquement purgee et l'utilisateur est redirige vers l'ecran d'accueil.
 3. **Avatars Deterministes Blobatar** :
    L'avatar de l'utilisateur est genere dynamiquement a partir de son adresse email ou de son nom d'utilisateur a l'aide du composant `BlobatarAvatar`, garantissant une identite visuelle unique sans necessiter de stockage d'image lourd en base de donnees.
+4. **Cache des Donnees Serveur (TanStack Query)** :
+   - Les donnees serveur sont lues via `useQuery` (cles centrees dans `src/services/query/queryKeys.ts`) et ecrites via `useMutation`.
+   - Toute mutation (creation, modification, suppression) appelle `queryClient.invalidateQueries(...)` pour re-actualiser les ecrans actifs.
+   - Une reponse de moins de 30 secondes est consideree fraiche : retour sur un ecran ou changement d'etat applicatif n'entraune alors aucune requete reseau supplementaire.
+   - Le cache est entierement purge (`queryClient.clear()`) a la deconnexion et en cas de reponse 401, pour eviter toute fuite de donnees entre comptes.
 
 ---
 

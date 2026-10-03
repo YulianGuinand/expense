@@ -1,5 +1,6 @@
 import { colors } from "@/constants/theme";
 import { AuthProvider } from "@/contexts/authContext";
+import { QueryProvider } from "@/contexts/queryContext";
 import { Stack } from "expo-router";
 import {
   configureReanimatedLogger,
@@ -48,8 +49,10 @@ function StackLayout() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <StackLayout />
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <StackLayout />
+      </AuthProvider>
+    </QueryProvider>
   );
 }

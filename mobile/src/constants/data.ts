@@ -359,3 +359,21 @@ export const mockTransactions: TransactionType[] = [
     walletId: "wallet_1",
   },
 ];
+
+export const walletsItem = [
+  {
+    name: "Personnel",
+    image: "",
+    amount: 2344,
+  },
+  {
+    name: "Plan d'épargne",
+    image: "",
+    amount: 120,
+  },
+  {
+    name: "Livret A",
+    image: "",
+    amount: 50,
+  },
+];

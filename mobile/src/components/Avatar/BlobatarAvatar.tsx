@@ -28,7 +28,7 @@ export const BlobatarAvatar = memo(
           style,
         ]}
       >
-        <AnimatedBlobatar name={seed} size={size} animate />
+        <AnimatedBlobatar traits={{ tone: 0.1 }} name={seed} size={size} animate />
       </View>
     );
   },

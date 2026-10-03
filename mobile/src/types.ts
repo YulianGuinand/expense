@@ -182,12 +182,20 @@ export type ResponseType = {
 };
 
 export type WalletType = {
-  id?: string;
+  id?: number;
   name: string;
   amount?: number;
   totalIncome?: number;
   totalExpenses?: number;
-  image: any;
+  image?: any;
   uid?: string;
   created?: Date;
+};
+
+export type CreateWalletInput = {
+  name: string;
+};
+
+export type UpdateWalletInput = {
+  name: string;
 };

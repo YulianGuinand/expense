@@ -1,11 +1,11 @@
 import { colors, radius, spacingX } from "@/constants/theme";
 import { WalletType } from "@/types";
 import { verticalScale } from "@/utils/styling";
-import { Image } from "expo-image";
 import { ImperativeRouter } from "expo-router";
 import { CaretRightIcon } from "phosphor-react-native";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { BlobatarAvatar } from "./Avatar/BlobatarAvatar";
 import { Typo } from "./Typo";
 
 export function WalletListItem({
@@ -18,12 +18,13 @@ export function WalletListItem({
   router: ImperativeRouter;
 }) {
   const openWallet = () => {
+    if (item.id == null) return;
+
     router.push({
       pathname: "/(modals)/walletModal",
       params: {
-        // id: item?.id,
-        name: item?.name,
-        image: item?.image,
+        id: String(item.id),
+        name: item.name,
       },
     });
   };
@@ -36,17 +37,12 @@ export function WalletListItem({
     >
       <TouchableOpacity style={styles.container} onPress={openWallet}>
         <View style={styles.imageContainer}>
-          <Image
-            source={require("@/assets/images/defaultAvatar.png")}
-            contentFit="cover"
-            style={{ flex: 1 }}
-            transition={100}
-          />
+          <BlobatarAvatar name={item?.name} size={verticalScale(40)} />
         </View>
         <View style={styles.nameContainer}>
           <Typo size={16}>{item?.name}</Typo>
           <Typo size={14} color={colors.neutral400}>
-            {item?.amount}€
+            {Number(item?.amount ?? 0).toFixed(2)}€
           </Typo>
         </View>
         <CaretRightIcon
@@ -69,10 +65,13 @@ const styles = StyleSheet.create({
     height: verticalScale(45),
     width: verticalScale(45),
     borderWidth: 1,
-    borderColor: colors.neutral600,
+    borderColor: colors.neutral700,
     borderRadius: radius._12,
     borderCurve: "continuous",
     overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.neutral700,
   },
   nameContainer: {
     flex: 1,

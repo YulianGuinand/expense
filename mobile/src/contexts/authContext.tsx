@@ -16,6 +16,7 @@ import {
 } from "@/types";
 import { authService } from "@/services/api/authService";
 import { extractApiErrorMessage, setUnauthorizedCallback } from "@/services/api/apiClient";
+import { queryClient } from "@/services/query/queryClient";
 import { tokenStorage } from "@/services/storage/tokenStorage";
 
 const AuthContext = createContext<AuthContextType>({
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Synchronisation de deconnexion en cas de reponse 401 sur un appel API
   const handleUnauthorized = useCallback(() => {
+    queryClient.clear();
     setUser(null);
     setToken(null);
   }, []);
@@ -115,6 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = useCallback(async (): Promise<ApiResult> => {
     try {
+      queryClient.clear();
       setUser(null);
       setToken(null);
       await tokenStorage.clearSession();
