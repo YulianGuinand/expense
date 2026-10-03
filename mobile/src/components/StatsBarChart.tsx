@@ -36,8 +36,7 @@ export function StatsBarChart({
     onPress: () => onSelect(index),
   }));
 
-  const screenWidth = Dimensions.get("window").width;
-  const chartWidth = screenWidth - scale(80);
+  const chartWidth = Dimensions.get("window").width;
 
   return (
     <View style={styles.container}>
@@ -52,7 +51,6 @@ export function StatsBarChart({
         maxValue={stepValue * NO_OF_SECTIONS}
         height={verticalScale(160)}
         width={chartWidth}
-        // Masquage des axes et des grilles pour coller au design épuré
         hideAxesAndRules
         xAxisLabelTextStyle={styles.axisText}
         highlightEnabled
@@ -70,6 +68,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: spacingY._5,
+    backgroundColor: colors.neutral800,
+    borderRadius: radius._10
   },
   axisText: {
     color: colors.neutral400,

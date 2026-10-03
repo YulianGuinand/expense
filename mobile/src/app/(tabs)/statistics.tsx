@@ -80,7 +80,7 @@ export default function Statistics() {
   const hasData = stats.some((stat) => stat.income > 0 || stat.expenses > 0);
 
   const walletOptions = [
-    { label: "Tous les wallets", value: "all" },
+    { label: "Tous les portefeuilles", value: "all" },
     ...wallets
       .filter((wallet) => wallet.id != null)
       .map((wallet) => ({ label: wallet.name, value: String(wallet.id) })),
@@ -99,7 +99,6 @@ export default function Statistics() {
   return (
     <ScreenWrapper>
       <View style={styles.container}>
-        {/* En-tête centré inspiré du design */}
         <View style={styles.headerContainer}>
           <Typo size={22} fontWeight={"600"} style={styles.title}>
             Statistique
@@ -110,7 +109,6 @@ export default function Statistics() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Sélecteur d'onglets façon pilule */}
           <SegmentedControl
             values={["Revenu", "Dépense"]}
             selectedIndex={tab === "income" ? 0 : 1}
@@ -149,7 +147,6 @@ export default function Statistics() {
           />
 
           <View style={styles.chartSection}>
-            {/* Indicateur de résumé au-dessus du graphique */}
             <View style={styles.summaryContainer}>
               <Typo size={13} color={colors.neutral400} style={styles.summarySubtitle}>
                 {tab === "income" ? "Revenu en" : "Dépense en"} {displayPeriodLabel}
